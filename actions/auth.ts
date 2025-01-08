@@ -64,6 +64,26 @@ export async function signIn(formData:FormData) {
     }
     
     // Create a user instance in users table
+    const {data : existingUser} = await supabase
+    .from("users")
+    .select("*")
+    .eq("email",credentials.email)
+    .limit(1)
+    .single();
+
+    if(!existingUser){
+        const {error:insertError} = await supabase.from("users")
+        .insert({
+            email : data.user.email,
+            username : data.user.user_metadata.username
+        });
+        if(insertError){
+            return {
+                status : insertError.message,
+                user : null
+            }
+        }
+    }
 
     revalidatePath("/","layout");
     return {

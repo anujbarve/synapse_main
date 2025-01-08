@@ -1,21 +1,20 @@
 "use client";
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { GithubIcon } from "lucide-react"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { signUp } from "@/actions/auth"
-import AuthButton from "./auth-button"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { GithubIcon } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { signUp } from "@/actions/auth";
+import AuthButton from "./auth-button";
 import Image from "next/image";
 
 export function RegisterForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const router = useRouter();
@@ -27,10 +26,10 @@ export function RegisterForm({
     const formData = new FormData(event.currentTarget);
     const result = await signUp(formData);
 
-    if(result.status === "success") {
+    if (result.status === "success") {
       router.push("/login");
-    }else{
-      setError(result.status)
+    } else {
+      setError(result.status);
     }
 
     setLoading(false);
@@ -107,6 +106,8 @@ export function RegisterForm({
           </form>
           <div className="relative hidden bg-muted md:block">
             <Image
+              width={1024}
+              height={1024}
               src="/synapse.png"
               alt="Image"
               className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
@@ -119,5 +120,5 @@ export function RegisterForm({
         and <a href="#">Privacy Policy</a>.
       </div>
     </div>
-  )
+  );
 }

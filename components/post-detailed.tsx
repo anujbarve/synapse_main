@@ -130,6 +130,8 @@ export function RedditPostDetailed() {
           {postData.postType === "image" && postData.imageUrl && (
             <div>
               <Image
+                            width={1024}
+                            height={1024}
                 src={postData.imageUrl}
                 alt="Post"
                 className="w-full h-auto object-cover rounded-lg"

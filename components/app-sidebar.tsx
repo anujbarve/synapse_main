@@ -26,6 +26,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { User } from "@supabase/supabase-js"
+import { createClient } from "@/utils/supabase/client"
 
 const data = {
   user: {
@@ -89,6 +91,23 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+
+  const [user,setUser] = React.useState<User | null>(null);
+
+  React.useEffect(() => {
+    async function getUser() {
+      const supabase = createClient();
+      const {data , error } = await supabase.auth.getUser();
+      if( error || !data.user ) {
+        console.log("User does not exist");
+      }else {
+        console.log(data.user);
+        setUser(data.user);
+      }
+    }
+    getUser()
+  }, []);
+
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
@@ -114,7 +133,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={{name : user?.user_metadata.username as string, email : user?.email as string }} />
       </SidebarFooter>
     </Sidebar>
   )
