@@ -27,9 +27,10 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { ModeToggle } from "./theme-toggle";
 import { useTheme } from "next-themes";
 import Link from "next/link";
+import { useState } from "react";
+import { logOut } from "@/actions/auth";
 
 export function NavUser({
   user,
@@ -46,6 +47,15 @@ export function NavUser({
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
+  };
+
+  const [loading,setLoading] = useState(false);
+
+  const handleLogout = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setLoading(true);
+    await logOut();
+    setLoading(false);
   };
 
   return (
@@ -117,9 +127,9 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout} disabled={loading}>
               <LogOut />
-              Log out
+              {loading ? "Logging Out..." : "Log out"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
