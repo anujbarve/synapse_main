@@ -1,9 +1,10 @@
   "use client";
 
   import * as React from "react";
-  import { ArrowDownIcon, ArrowUp01Icon, ArrowUpIcon, Heart, MessageSquare, Share } from "lucide-react";
+  import { ArrowDownIcon, ArrowUpIcon, Heart, MessageSquare, Share } from "lucide-react";
   import { Button } from "@/components/ui/button";
   import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import Image from "next/image";
 
   export function RedditPost() {
     return (
@@ -18,7 +19,7 @@
         <CardContent>
           {/* Image/Video Placeholder */}
           <div className="aspect-video rounded-lg bg-muted/50 mb-4">
-              <img src="https://preview.redd.it/this-is-mt-kailash-in-tibet-just-north-of-nepal-it-has-v0-fpsz097efwae1.jpeg?width=1080&crop=smart&auto=webp&s=f5d4b9641f4a30023ba85c61f91a833cd40a332e" alt=""/>
+              <Image src="https://preview.redd.it/this-is-mt-kailash-in-tibet-just-north-of-nepal-it-has-v0-fpsz097efwae1.jpeg?width=1080&crop=smart&auto=webp&s=f5d4b9641f4a30023ba85c61f91a833cd40a332e" alt=""/>
           </div>
 
           {/* Post Body */}

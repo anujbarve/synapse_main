@@ -14,13 +14,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "./ui/badge";
+import Image from "next/image";
 
 export function CommunityInfoCard() {
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
-          <img
+          <Image
             src="https://via.placeholder.com/50" // Add your community icon
             alt="Community Icon"
             width={40}
@@ -85,7 +86,7 @@ export function CommunityInfoCard() {
               </p>
               <p className="flex items-center space-x-2">
                 <span className="font-medium">3.</span>
-                <span>Follow Synapse's content policy</span>
+                <span>Follow Synapses content policy</span>
               </p>
             </div>
           </div>

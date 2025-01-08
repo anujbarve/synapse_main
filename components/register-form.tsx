@@ -9,6 +9,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { signUp } from "@/actions/auth"
 import AuthButton from "./auth-button"
+import Image from "next/image";
 
 export function RegisterForm({
   className,
@@ -46,6 +47,9 @@ export function RegisterForm({
                   Login to your Synapse account
                 </p>
               </div>
+              {error && (
+                <div className="text-red-500 text-sm text-center">{error}</div>
+              )}
               <div className="grid gap-2">
                 <Label htmlFor="email">Username</Label>
                 <Input
@@ -102,7 +106,7 @@ export function RegisterForm({
             </div>
           </form>
           <div className="relative hidden bg-muted md:block">
-            <img
+            <Image
               src="/synapse.png"
               alt="Image"
               className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"

@@ -1,39 +1,39 @@
-"use client"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { GithubIcon } from "lucide-react"
-import { signIn } from "@/actions/auth"
-import { useRouter } from "next/navigation"
-import { useState } from "react"
-import AuthButton from "./auth-button"
+"use client";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { GithubIcon } from "lucide-react";
+import { signIn } from "@/actions/auth";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import AuthButton from "./auth-button";
+import Image from "next/image";
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const router = useRouter();
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoading(true);
+    setError(null);
 
-    const [error, setError] = useState<string | null>(null);
-    const [loading, setLoading] = useState<boolean>(false);
-    const router = useRouter();
-    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      setLoading(true);
-      setError(null);
-  
-      const formData = new FormData(event.currentTarget);
-      const result = await signIn(formData);
-  
-      if(result.status === "success") {
-        router.push("/");
-      }else{
-        setError(result.status)
-      }
-  
-      setLoading(false);
-    };
+    const formData = new FormData(event.currentTarget);
+    const result = await signIn(formData);
+
+    if (result.status === "success") {
+      router.push("/");
+    } else {
+      setError(result.status);
+    }
+
+    setLoading(false);
+  };
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card className="overflow-hidden">
@@ -46,6 +46,9 @@ export function LoginForm({
                   Login to your Synapse account
                 </p>
               </div>
+              {error && (
+                <div className="text-red-500 text-sm text-center">{error}</div>
+              )}
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -92,7 +95,7 @@ export function LoginForm({
             </div>
           </form>
           <div className="relative hidden bg-muted md:block">
-            <img
+            <Image
               src="/synapse.png"
               alt="Image"
               className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
@@ -105,5 +108,5 @@ export function LoginForm({
         and <a href="#">Privacy Policy</a>.
       </div>
     </div>
-  )
+  );
 }

@@ -20,6 +20,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
+import Image from "next/image";
 
 interface CommentData {
   userName: string;
@@ -128,7 +129,7 @@ export function RedditPostDetailed() {
           {/* Display content based on postType */}
           {postData.postType === "image" && postData.imageUrl && (
             <div>
-              <img
+              <Image
                 src={postData.imageUrl}
                 alt="Post"
                 className="w-full h-auto object-cover rounded-lg"

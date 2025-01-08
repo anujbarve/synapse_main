@@ -2,7 +2,6 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { RedditPost } from "@/components/post";
 import { RedditPostDetailed } from "@/components/post-detailed";
 import { RecentPosts } from "@/components/recent-posts";
-import { Badge } from "@/components/ui/badge";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -11,22 +10,13 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { CalendarIcon } from "lucide-react";
 
 export default function Page() {
 
