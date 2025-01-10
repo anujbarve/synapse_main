@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       if (!existingUser) {
         const { error: insertError } = await supabase.from("users").insert({
           email: data.user.email,
-          username: data.user.user_metadata.username,
+          username : data.user.email?.split('@')[0]
         });
         if (insertError) {
             console.log("Error fetching user data : ", insertError.message);
