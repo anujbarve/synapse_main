@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   // if "next" is in param, use it as the redirect URL
   const next = searchParams.get("next") ?? "/";
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
       const { data, error: userError } = await supabase.auth.getUser();
       if (userError) {
         console.log("Error fetching user data : ", userError.message);
-        return NextResponse.redirect(`${origin}/error`);
+        return NextResponse.redirect(`${process.env.SITE_URL}/error`);
       }
 
       // Create a user instance in users table
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
         });
         if (insertError) {
             console.log("Error inserting user data : ", insertError.message);
-            return NextResponse.redirect(`${origin}/error`);
+            return NextResponse.redirect(`${process.env.SITE_URL}/error`);
         }
       }
 
@@ -42,15 +42,15 @@ export async function GET(request: Request) {
       const isLocalEnv = process.env.NODE_ENV === "development";
       if (isLocalEnv) {
         // we can be sure that there is no load balancer in between, so no need to watch for X-Forwarded-Host
-        return NextResponse.redirect(`${origin}${next}`);
+        return NextResponse.redirect(`${process.env.SITE_URL}${next}`);
       } else if (forwardedHost) {
         return NextResponse.redirect(`https://${forwardedHost}${next}`);
       } else {
-        return NextResponse.redirect(`${origin}${next}`);
+        return NextResponse.redirect(`${process.env.SITE_URL}${next}`);
       }
     }
   }
 
   // return the user to an error page with instructions
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+  return NextResponse.redirect(`${process.env.SITE_URL}/auth/auth-code-error`);
 }
