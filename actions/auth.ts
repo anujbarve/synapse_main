@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/utils/supabase/server";
+import { headers } from "next/headers";
 
 export async function signUp(formData: FormData) {
   const supabase = await createClient();
@@ -114,11 +115,12 @@ export async function getUserSession() {
 }
 
 export async function signInWithGithub() {
+  const origin = (await headers()).get("origin");
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "github",
     options: {
-      redirectTo: `${process.env.SITE_URL}/auth/callback`,
+      redirectTo: `${origin}/auth/callback`,
     },
   });
 
@@ -131,11 +133,12 @@ export async function signInWithGithub() {
 
 
 export async function signInWithGoogle() {
+    const origin = (await headers()).get("origin");
     const supabase = await createClient();
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${process.env.SITE_URL}/auth/callback`,
+        redirectTo: `${origin}/auth/callback`,
       },
     });
   
