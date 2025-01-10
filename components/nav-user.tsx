@@ -31,6 +31,7 @@ import { useTheme } from "next-themes";
 import Link from "next/link";
 import { useState } from "react";
 import { logOut } from "@/actions/auth";
+import { useToast } from "@/hooks/use-toast";
 
 export function NavUser({
   user,
@@ -40,6 +41,8 @@ export function NavUser({
     email: string;
   };
 }) {
+
+  const { toast } = useToast();
   const { isMobile } = useSidebar();
 
   const { theme, setTheme } = useTheme();
@@ -55,6 +58,14 @@ export function NavUser({
     setLoading(true);
     await logOut();
     setLoading(false);
+  };
+
+  const notificationToast = () => {
+    console.log("toast invoked");
+    toast({
+      title: "Notification Title",
+      description: "Notification Description",
+    })
   };
 
   return (
@@ -120,7 +131,7 @@ export function NavUser({
                 <CreditCard />
                 Billing
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={notificationToast}>
                 <Bell />
                 Notifications
               </DropdownMenuItem>

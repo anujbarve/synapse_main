@@ -131,20 +131,65 @@ export async function signInWithGithub() {
   }
 }
 
-
 export async function signInWithGoogle() {
-    const origin = (await headers()).get("origin");
-    const supabase = await createClient();
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${origin}/auth/callback`,
-      },
-    });
-  
-    if (error) {
-      redirect("/error");
-    } else if (data.url) {
-      return redirect(data.url);
-    }
+  const origin = (await headers()).get("origin");
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${origin}/auth/callback`,
+    },
+  });
+
+  if (error) {
+    redirect("/error");
+  } else if (data.url) {
+    return redirect(data.url);
   }
+}
+
+export async function forgotPassword(formData : FormData) {
+    const supabase = await createClient();
+    const origin = (await headers()).get("origin");
+
+    const {error, data} = await supabase.auth.resetPasswordForEmail(
+        formData.get("email") as string,
+        {
+            redirectTo : `${origin}/reset-password`
+        }
+    )
+
+    if(error) {
+        return {
+            status : error.message,
+            user : null
+        }
+    }
+
+    return {
+        status : "success"
+    }
+}
+
+export async function resetPassword(formData : FormData, code : string) {
+    const supabase = await createClient();
+    const {error : CodeError } = await supabase.auth.exchangeCodeForSession(code);
+
+    if(CodeError) {
+        return {
+            status : CodeError.message
+        }
+    }
+
+    const { error } = await supabase.auth.updateUser({
+        password : formData.get("password") as string
+    })
+
+    if(error) {
+        return {
+            status : error.message
+        }
+    }
+
+    return { status : "Success"}
+}

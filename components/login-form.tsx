@@ -9,6 +9,7 @@ import { useState } from "react";
 import AuthButton from "./auth-button";
 import Image from "next/image";
 import OAuthButton from "./oauth-button";
+import * as z from "zod";
 
 export function LoginForm({
   className,
@@ -17,12 +18,36 @@ export function LoginForm({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const router = useRouter();
+
+  // Zod schema for validation
+  const loginSchema = z.object({
+    email: z
+      .string()
+      .email("Invalid email format")
+      .nonempty("Email is required"),
+    password: z
+      .string()
+      .min(6, "Password must be at least 6 characters long")
+      .nonempty("Password is required"),
+  });
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
     setError(null);
 
     const formData = new FormData(event.currentTarget);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+
+    // Validate input using Zod
+    const validationResult = loginSchema.safeParse({ email, password });
+    if (!validationResult.success) {
+      setError(validationResult.error.errors[0]?.message || "Invalid input");
+      setLoading(false);
+      return;
+    }
+
     const result = await signIn(formData);
 
     if (result.status === "success") {
@@ -33,6 +58,7 @@ export function LoginForm({
 
     setLoading(false);
   };
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card className="overflow-hidden">
@@ -59,10 +85,22 @@ export function LoginForm({
                 />
               </div>
               <div className="grid gap-2">
-                <div className="flex items-center">
+                <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
+                  <a
+                    href="/forgot-password"
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Forgot Password?
+                  </a>
                 </div>
-                <Input name="password" id="password" type="password" required />
+                <Input
+                  name="password"
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  required
+                />
               </div>
               <AuthButton type="Login" loading={loading}></AuthButton>
               <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
