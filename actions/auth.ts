@@ -5,9 +5,17 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/utils/supabase/server";
 
-
-const siteURL = process.env.SITE_URL; // Using SITE_URL from environment variables
-
+const getURL = () => {
+  let url =
+    process?.env?.NEXT_PUBLIC_NEXT_PUBLIC_SITE_URL ?? // Set this to your site URL in production env.
+    process?.env?.NEXT_PUBLIC_VERCEL_URL ?? // Automatically set by Vercel.
+    "http://localhost:3000/";
+  // Make sure to include `https://` when not localhost.
+  url = url.startsWith("http") ? url : `https://${url}`;
+  // Make sure to include a trailing `/`.
+  url = url.endsWith("/") ? url : `${url}/`;
+  return url;
+};
 
 export async function signUp(formData: FormData) {
   const supabase = await createClient();
@@ -122,7 +130,7 @@ export async function signInWithGithub() {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "github",
     options: {
-      redirectTo: `${siteURL}/auth/callback`,
+      redirectTo: `${getURL()}/auth/callback`,
     },
   });
 
@@ -133,19 +141,18 @@ export async function signInWithGithub() {
   }
 }
 
-
 export async function signInWithGoogle() {
-    const supabase = await createClient();
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${siteURL}/auth/callback`,
-      },
-    });
-  
-    if (error) {
-      redirect("/error");
-    } else if (data.url) {
-      return redirect(data.url);
-    }
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${getURL}/auth/callback`,
+    },
+  });
+
+  if (error) {
+    redirect("/error");
+  } else if (data.url) {
+    return redirect(data.url);
   }
+}

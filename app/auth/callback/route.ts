@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 
 export async function GET(request: Request) {
-  const siteURL = process.env.SITE_URL; // Using SITE_URL from environment variables
+  const siteURL = process.env.NEXT_PUBLIC_SITE_URL; // Using NEXT_PUBLIC_SITE_URL from environment variables
 
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
