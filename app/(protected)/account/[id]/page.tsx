@@ -11,6 +11,8 @@ import { Separator } from "@/components/ui/separator";
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/utils/supabase/server";
+import Image from "next/image";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export default async function RoomPage({
   params,
@@ -20,9 +22,9 @@ export default async function RoomPage({
   const slug = (await params).id;
 
   const supabase = await createClient();
-  const { data : userdata } = await supabase.from("users").select().eq("username",slug).limit(1);
+  const { data : userdata } = await supabase.from("users").select().eq("username",slug).single();
   if(userdata) {
-    console.log(userdata[0].id);
+    console.log(userdata.id);
   }  
   return (
     <>
@@ -54,12 +56,21 @@ export default async function RoomPage({
           <aside className="w-full lg:w-1/3 bg-card rounded-lg shadow-sm p-6">
             <div className="flex flex-col items-center gap-6">
               {/* User Profile */}
-              <div className="h-32 w-32 rounded-full bg-muted flex items-center justify-center">
-                <span className="text-muted-foreground text-2xl">P</span>
-              </div>
+                <Avatar className="h-32 w-32 rounded-lg">
+                {userdata.profile_picture ? (
+                  <Image
+                    height={512}
+                    width={512}
+                    src={userdata.profile_picture}
+                    alt={userdata.name}
+                  />
+                ) : (
+                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                )}
+              </Avatar>
               <div className="text-center">
-                <h1 className="text-xl font-bold text-primary">User {}</h1>
-                <p className="text-sm text-muted-foreground">ID: {slug}</p>
+                <h1 className="text-xl font-bold text-primary">User : {slug}</h1>
+                <p className="text-sm text-muted-foreground">Email : {userdata.email}</p>
               </div>
               {/* User Stats */}
               <div className="flex w-full justify-around text-sm text-muted-foreground">

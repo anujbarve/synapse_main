@@ -33,34 +33,46 @@ export default function Page() {
         </div>
       </header>
 
-      <main className="grid gap-4 grid-cols-8 p-4">
-        <div className="col-span-5">
-          <CreateCommunity></CreateCommunity>
-          <Post
-            id={1}
-            roomId={123}
-            userId="anujb"
-            title="Welcome to Synapse!"
-            content="https://images.pexels.com/photos/27495274/pexels-photo-27495274/free-photo-of-aerial-view-of-the-ocean-and-a-beach.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"
-            type="Image"
-            upvotes={150}
-            downvotes={20}
-            createdAt="2025-01-13T10:00:00Z"
-          />
-          <Post
-            id={2}
-            roomId={123}
-            userId="anujb"
-            title="Welcome to Synapse!"
-            content="Hello Guys on Synapse"
-            type="Text"
-            upvotes={150}
-            downvotes={20}
-            createdAt="2025-01-13T10:00:00Z"
-          />
-        </div>
-        <div className="col-span-3">
-          <CommunityInfoCard></CommunityInfoCard>
+      <main className="grid w-full gap-4 p-4">
+        {/* Mobile Layout (< 768px): Stack everything vertically */}
+        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4 w-full">
+          {/* Community Info Card - Show at top on mobile */}
+          <div className="col-span-1 md:col-span-1 md:order-2 lg:col-span-3 md:sticky md:top-4">
+            <CommunityInfoCard />
+          </div>
+
+          {/* Main Content Area */}
+          <div className="col-span-1 md:col-span-3 md:order-1 lg:col-span-5 space-y-4">
+            <div className="mb-4">
+              <CreateCommunity />
+            </div>
+            
+            {/* Posts */}
+            <div className="space-y-4">
+              <Post
+                id={1}
+                roomId={123}
+                userId="anujb"
+                title="Welcome to Synapse!"
+                content="https://images.pexels.com/photos/27495274/pexels-photo-27495274/free-photo-of-aerial-view-of-the-ocean-and-a-beach.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"
+                type="Image"
+                upvotes={150}
+                downvotes={20}
+                createdAt="2025-01-13T10:00:00Z"
+              />
+              <Post
+                id={2}
+                roomId={123}
+                userId="anujb"
+                title="Welcome to Synapse!"
+                content="Hello Guys on Synapse"
+                type="Text"
+                upvotes={150}
+                downvotes={20}
+                createdAt="2025-01-13T10:00:00Z"
+              />
+            </div>
+          </div>
         </div>
       </main>
     </>

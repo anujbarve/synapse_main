@@ -140,7 +140,7 @@ export function NavUser({
                 Theme
               </DropdownMenuItem>
 
-              <Link href={"/account/1"}>
+              <Link href={`/account/${user.name}`}>
                 <DropdownMenuItem>
                   <BadgeCheck />
                   Account
