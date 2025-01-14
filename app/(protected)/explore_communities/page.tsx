@@ -1,7 +1,4 @@
 import { CommunityBanner } from "@/components/community-banner";
-import { CommunityInfoCard } from "@/components/community-info-card";
-import { CreateCommunity } from "@/components/create-community";
-import { Post } from "@/components/post";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -39,7 +36,7 @@ export default function Page() {
         <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4 w-full">
           {/* Community Info Card - Show at top on mobile */}
           <div className="col-span-1 md:col-span-1 md:order-2 lg:col-span-3 md:sticky md:top-4">
-            <CommunityInfoCard />
+            {/* <CommunityInfoCard /> */}
           </div>
 
           {/* Main Content Area */}
