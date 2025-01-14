@@ -24,6 +24,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import Link from "next/link"
 
 export function NavProjects({
   projects,
@@ -77,12 +78,14 @@ export function NavProjects({
             </DropdownMenu>
           </SidebarMenuItem>
         ))}
+        <Link href={"/explore_communities"}>
         <SidebarMenuItem>
           <SidebarMenuButton>
             <MoreHorizontal />
             <span>More</span>
           </SidebarMenuButton>
-        </SidebarMenuItem>
+        </SidebarMenuItem>  
+        </Link>
       </SidebarMenu>
     </SidebarGroup>
   )
