@@ -51,7 +51,7 @@ export function LoginForm({
     const result = await signIn(formData);
 
     if (result.status === "success") {
-      router.push("/");
+      router.push("/dashboard");
     } else {
       setError(result.status);
     }

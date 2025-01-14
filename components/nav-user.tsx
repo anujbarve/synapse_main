@@ -7,11 +7,12 @@ import {
   CreditCard,
   LogOut,
   Moon,
+  Settings,
   Sparkles,
   Sun,
 } from "lucide-react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +33,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { logOut } from "@/actions/auth";
 import { useToast } from "@/hooks/use-toast";
+import Image from "next/image";
 
 export function NavUser({
   user,
@@ -39,9 +41,9 @@ export function NavUser({
   user: {
     name: string;
     email: string;
+    avatar: string;
   };
 }) {
-
   const { toast } = useToast();
   const { isMobile } = useSidebar();
 
@@ -51,7 +53,7 @@ export function NavUser({
     setTheme(theme === "dark" ? "light" : "dark");
   };
 
-  const [loading,setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleLogout = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -65,8 +67,10 @@ export function NavUser({
     toast({
       title: "Notification Title",
       description: "Notification Description",
-    })
+    });
   };
+
+  console.log(user.avatar);
 
   return (
     <SidebarMenu>
@@ -78,8 +82,16 @@ export function NavUser({
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={"shadcn.jpg"} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                {user.avatar ? (
+                  <Image
+                    height={256}
+                    width={256}
+                    src={user.avatar}
+                    alt={user.name}
+                  />
+                ) : (
+                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                )}
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{user.name}</span>
@@ -96,10 +108,18 @@ export function NavUser({
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={"shadcn.jpg"} alt={user.name} />
+              <Avatar className="h-8 w-8 rounded-lg">
+                {user.avatar ? (
+                  <Image
+                    height={256}
+                    width={256}
+                    src={user.avatar}
+                    alt={user.name}
+                  />
+                ) : (
                   <AvatarFallback className="rounded-lg">CN</AvatarFallback>
-                </Avatar>
+                )}
+              </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{user.name}</span>
                   <span className="truncate text-xs">{user.email}</span>
@@ -120,10 +140,17 @@ export function NavUser({
                 Theme
               </DropdownMenuItem>
 
-              <Link href={"/settings"}>
+              <Link href={"/account/1"}>
                 <DropdownMenuItem>
                   <BadgeCheck />
                   Account
+                </DropdownMenuItem>
+              </Link>
+
+              <Link href={"/settings"}>
+                <DropdownMenuItem>
+                  <Settings />
+                  Settings
                 </DropdownMenuItem>
               </Link>
 

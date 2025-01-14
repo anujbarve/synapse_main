@@ -22,7 +22,7 @@ export function CommunityInfoCard() {
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
           <Image
-            src="https://via.placeholder.com/50" // Add your community icon
+            src="https://cdn-icons-png.flaticon.com/512/10755/10755374.png" // Add your community icon
             alt="Community Icon"
             width={40}
             height={40}

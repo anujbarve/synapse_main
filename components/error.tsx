@@ -12,6 +12,8 @@ export function ErrorScreen({ className, ...props }: React.ComponentProps<"div">
               Something went wrong. Please try again later.
             </p>
             <Image
+            width={1024}
+            height={1024}
               src="/synapse.png"
               alt="Error Illustration"
               className="mx-auto object-contain"
