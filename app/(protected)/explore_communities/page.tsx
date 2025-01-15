@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useCommunityStore } from "@/providers/communities_store";
+import { useCommunityStore } from "@/stores/communities_store";
 
 export default function Page() {
   const { communities, loading, error, fetchCommunities } = useCommunityStore();

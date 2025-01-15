@@ -60,7 +60,7 @@ export default async function RoomPage({
                     height={512}
                     width={512}
                     src={userdata.profile_picture}
-                    alt={userdata.name}
+                    alt={"Profile Image"}
                   />
                 ) : (
                   <AvatarFallback className="rounded-lg">CN</AvatarFallback>
@@ -82,7 +82,7 @@ export default async function RoomPage({
                 </div>
                 <div className="text-center">
                   <p className="font-bold">789</p>
-                  <p>Karma</p>
+                  <p>Reputation</p>
                 </div>
               </div>
               {/* Follow Button */}

@@ -21,7 +21,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/utils/supabase/client";
 import { Textarea } from "../ui/textarea";
-import { useUserStore } from "@/providers/user_store";
+import { useUserStore } from "@/stores/user_store";
 
 // Define the form schema with Zod
 const userFormSchema = z.object({

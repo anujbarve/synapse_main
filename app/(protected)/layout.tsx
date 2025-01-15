@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { useUserStore } from '@/providers/user_store';
+import { useUserStore } from '@/stores/user_store';
 
 export default function RootLayout({
   children,

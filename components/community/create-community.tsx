@@ -26,7 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CalendarIcon } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useUserStore } from "@/providers/user_store";
+import { useUserStore } from "@/stores/user_store";
 
 // Define the form schema with Zod
 const communityFormSchema = z.object({

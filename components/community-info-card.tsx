@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,16 +11,30 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
+import { Badge } from "./ui/badge";
+import { cn } from "@/lib/utils";
+import { useCommunityPresence } from "@/stores/user_online_store";
+
+interface User {
+  id: string;
+  username: string;
+  profile_picture: string | null;
+  role?: "admin" | "moderator" | "member";
+}
 
 interface CommunityInfo {
-  name: string| undefined;
-  description: string | null |undefined;
+  name: string | undefined;
+  description: string | null | undefined;
   banner_picture: string | null | undefined;
-  created_at:string | null | undefined;
+  created_at: string | null | undefined;
   members: string | undefined;
   online_members: string | undefined;
   ranking: string | undefined;
+  users?: User[];
+  communityId?: number;
 }
 
 export function CommunityInfoCard({
@@ -31,7 +45,12 @@ export function CommunityInfoCard({
   members,
   online_members,
   ranking,
+  users = [],
+  communityId,
 }: CommunityInfo) {
+  const [showAllMembers, setShowAllMembers] = React.useState(false);
+  const { onlineMembers } = useCommunityPresence(communityId || 0);
+
   return (
     <Card>
       {/* Banner Image */}
@@ -56,9 +75,7 @@ export function CommunityInfoCard({
             <h2 className="text-xl">{name}</h2>
           </div>
         </CardTitle>
-        <CardDescription className="mt-4">
-          {description}
-        </CardDescription>
+        <CardDescription className="mt-4">{description}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -81,11 +98,80 @@ export function CommunityInfoCard({
           {/* Created Date */}
           <div className="flex items-center space-x-2 text-sm">
             <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-            {created_at ? <span>{new Date(created_at).toISOString().split('T')[0]}</span> : <></>}
+            {created_at ? (
+              <span>{new Date(created_at).toISOString().split("T")[0]}</span>
+            ) : (
+              <></>
+            )}
+          </div>
+
+          {/* Members Section */}
+          <div className="space-y-2 border-t pt-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Members
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAllMembers(!showAllMembers)}
+              >
+                {showAllMembers ? "Show Less" : "Show More"}
+              </Button>
+            </div>
+
+            <ScrollArea
+              className={`${showAllMembers ? "h-[200px]" : "h-[100px]"}`}
+            >
+              <div className="space-y-2">
+                {users.map((user) => (
+                  <div
+                    key={user.id}
+                    className="flex items-center justify-between p-2 hover:bg-muted rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={user.profile_picture || ""} />
+                          <AvatarFallback>
+                            {user.username.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span
+                          className={cn(
+                            "absolute bottom-0 right-0 h-2 w-2 rounded-full ring-2 ring-white",
+                            !!onlineMembers[user.id] ? "bg-green-500" : "bg-gray-300"
+                          )}
+                        />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{user.username}</p>
+                        {user.role && (
+                          <Badge
+                            variant={
+                              user.role === "admin"
+                                ? "destructive"
+                                : user.role === "moderator"
+                                ? "blue"
+                                : "secondary"
+                            }
+                            className="text-xs"
+                          >
+                            {user.role.charAt(0).toUpperCase() +
+                              user.role.slice(1)}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
           </div>
 
           {/* Community Rules */}
-          <div className="space-y-2">
+          <div className="space-y-2 border-t pt-4">
             <h3 className="text-sm font-medium">Community Rules</h3>
             <div className="space-y-2 text-sm">
               <p className="flex items-center space-x-2">

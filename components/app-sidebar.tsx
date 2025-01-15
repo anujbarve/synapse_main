@@ -26,14 +26,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { useUserStore } from "@/providers/user_store"
+import { useUserStore } from "@/stores/user_store"
 
 const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "shadcn.jpg",
-  },
   navMain: [
     {
       title: "Home",
@@ -89,6 +84,65 @@ const data = {
   ],
 }
 
+// const community_mode = {
+//   community_name : "Java Developer",
+//   navMain: [
+//     {
+//       title: "Back to Dashboard",
+//       url: "/dashboard",
+//       icon: StepBack,
+//       items: [
+//       ],
+//     },
+//   ],
+//   navSecondary: [
+//     {
+//       title: "Support",
+//       url: "#",
+//       icon: LifeBuoy,
+//     },
+//     {
+//       title: "Feedback",
+//       url: "#",
+//       icon: Send,
+//     },
+//   ],
+//   text: [
+//     {
+//       name: "Discussions",
+//       url: "/community",
+//       icon: Frame,
+//     },
+//     {
+//       name: "Spring Boot",
+//       url: "#",
+//       icon: PieChart,
+//     },
+//     {
+//       name: "AWT",
+//       url: "#",
+//       icon: Map,
+//     },
+//   ],
+//   av: [
+//     {
+//       name: "Discussions",
+//       url: "/community",
+//       icon: Frame,
+//     },
+//     {
+//       name: "Spring Boot",
+//       url: "#",
+//       icon: PieChart,
+//     },
+//     {
+//       name: "AWT",
+//       url: "#",
+//       icon: Map,
+//     },
+//   ],
+// }
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const { user } = useUserStore();
@@ -115,6 +169,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         <NavMain items={data.navMain} />
         <NavProjects projects={data.projects} />
+        {/* <NavProjects projects={community_mode.av} /> */}
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
