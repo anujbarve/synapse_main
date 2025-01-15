@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect } from "react";
 import { CommunityBanner } from "@/components/community-banner";
 import {
   Breadcrumb,
@@ -9,8 +12,23 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useCommunityStore } from "@/providers/communities_store";
 
 export default function Page() {
+  const { communities, loading, error, fetchCommunities } = useCommunityStore();
+
+  useEffect(() => {
+    fetchCommunities();
+  }, [fetchCommunities]);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
+
   return (
     <>
       <header className="flex h-16 shrink-0 items-center gap-2">
@@ -24,7 +42,7 @@ export default function Page() {
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbPage>Design Engineering</BreadcrumbPage>
+                <BreadcrumbPage>Explore Communities</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
@@ -32,25 +50,17 @@ export default function Page() {
       </header>
 
       <main className="grid w-full gap-4 p-4">
-        {/* Mobile Layout (< 768px): Stack everything vertically */}
-        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4 w-full">
-          {/* Community Info Card - Show at top on mobile */}
-          <div className="col-span-1 md:col-span-1 md:order-2 lg:col-span-3 md:sticky md:top-4">
-            {/* <CommunityInfoCard /> */}
-          </div>
-
-          {/* Main Content Area */}
-          <div className="col-span-1 md:col-span-3 md:order-1 lg:col-span-5 space-y-4">
-            
-            {/* Posts */}
-            <div className="space-y-4">
-              <CommunityBanner></CommunityBanner>
-              <CommunityBanner></CommunityBanner>
-              <CommunityBanner></CommunityBanner>
-              <CommunityBanner></CommunityBanner>
-              <CommunityBanner></CommunityBanner>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 w-full">
+          {communities.map((community) => (
+            <div className="col-span-1" key={community.id}>
+              <CommunityBanner
+                id={community.id.toString()}
+                title={community.name}
+                description={community.description}
+                banner_picture={community.banner_picture}
+              />
             </div>
-          </div>
+          ))}
         </div>
       </main>
     </>

@@ -92,53 +92,133 @@ export type Database = {
           },
         ]
       }
+      community: {
+        Row: {
+          banner_picture: string | null
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: number
+          is_private: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          banner_picture?: string | null
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          id?: number
+          is_private?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          banner_picture?: string | null
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          id?: number
+          is_private?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rooms_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_members: {
+        Row: {
+          community_id: number
+          id: number
+          joined_at: string | null
+          role: string | null
+          user_id: string
+        }
+        Insert: {
+          community_id: number
+          id?: number
+          joined_at?: string | null
+          role?: string | null
+          user_id: string
+        }
+        Update: {
+          community_id?: number
+          id?: number
+          joined_at?: string | null
+          role?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_members_room_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "community"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
+          community_id: number | null
           content: string
           file_url: string | null
           id: number
           is_read: boolean | null
           message_type: string | null
           receiver_id: string
-          room_id: number | null
           sender_id: string
           sent_at: string | null
         }
         Insert: {
+          community_id?: number | null
           content: string
           file_url?: string | null
           id?: number
           is_read?: boolean | null
           message_type?: string | null
           receiver_id: string
-          room_id?: number | null
           sender_id: string
           sent_at?: string | null
         }
         Update: {
+          community_id?: number | null
           content?: string
           file_url?: string | null
           id?: number
           is_read?: boolean | null
           message_type?: string | null
           receiver_id?: string
-          room_id?: number | null
           sender_id?: string
           sent_at?: string | null
         }
         Relationships: [
           {
+            foreignKeyName: "messages_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "community"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "messages_receiver_id_fkey"
             columns: ["receiver_id"]
             isOneToOne: false
             referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "messages_room_id_fkey"
-            columns: ["room_id"]
-            isOneToOne: false
-            referencedRelation: "rooms"
             referencedColumns: ["id"]
           },
           {
@@ -154,33 +234,33 @@ export type Database = {
         Row: {
           action: string | null
           actioned_at: string | null
+          community_id: number
           details: string | null
           id: number
-          room_id: number
           user_id: string
         }
         Insert: {
           action?: string | null
           actioned_at?: string | null
+          community_id: number
           details?: string | null
           id?: number
-          room_id: number
           user_id: string
         }
         Update: {
           action?: string | null
           actioned_at?: string | null
+          community_id?: number
           details?: string | null
           id?: number
-          room_id?: number
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "moderation_logs_room_id_fkey"
-            columns: ["room_id"]
+            foreignKeyName: "moderation_logs_community_id_fkey"
+            columns: ["community_id"]
             isOneToOne: false
-            referencedRelation: "rooms"
+            referencedRelation: "community"
             referencedColumns: ["id"]
           },
           {
@@ -226,11 +306,11 @@ export type Database = {
       }
       posts: {
         Row: {
+          community_id: number
           content: string | null
           created_at: string | null
           downvotes: number | null
           id: number
-          room_id: number
           title: string
           type: string | null
           updated_at: string | null
@@ -238,11 +318,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          community_id: number
           content?: string | null
           created_at?: string | null
           downvotes?: number | null
           id?: number
-          room_id: number
           title: string
           type?: string | null
           updated_at?: string | null
@@ -250,11 +330,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          community_id?: number
           content?: string | null
           created_at?: string | null
           downvotes?: number | null
           id?: number
-          room_id?: number
           title?: string
           type?: string | null
           updated_at?: string | null
@@ -263,10 +343,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "posts_room_id_fkey"
-            columns: ["room_id"]
+            foreignKeyName: "posts_community_id_fkey"
+            columns: ["community_id"]
             isOneToOne: false
-            referencedRelation: "rooms"
+            referencedRelation: "community"
             referencedColumns: ["id"]
           },
           {
@@ -350,7 +430,7 @@ export type Database = {
             foreignKeyName: "resources_room_id_fkey"
             columns: ["room_id"]
             isOneToOne: false
-            referencedRelation: "rooms"
+            referencedRelation: "community"
             referencedColumns: ["id"]
           },
           {
@@ -358,131 +438,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      room_members: {
-        Row: {
-          id: number
-          joined_at: string | null
-          role: string | null
-          room_id: number
-          user_id: string
-        }
-        Insert: {
-          id?: number
-          joined_at?: string | null
-          role?: string | null
-          room_id: number
-          user_id: string
-        }
-        Update: {
-          id?: number
-          joined_at?: string | null
-          role?: string | null
-          room_id?: number
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "room_members_room_id_fkey"
-            columns: ["room_id"]
-            isOneToOne: false
-            referencedRelation: "rooms"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "room_members_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      rooms: {
-        Row: {
-          created_at: string | null
-          created_by: string
-          description: string | null
-          id: number
-          is_private: boolean | null
-          name: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by: string
-          description?: string | null
-          id?: number
-          is_private?: boolean | null
-          name: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string
-          description?: string | null
-          id?: number
-          is_private?: boolean | null
-          name?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "rooms_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      tasks: {
-        Row: {
-          assigned_to: string | null
-          created_at: string | null
-          description: string | null
-          due_date: string | null
-          id: number
-          room_id: number
-          status: string | null
-          title: string
-        }
-        Insert: {
-          assigned_to?: string | null
-          created_at?: string | null
-          description?: string | null
-          due_date?: string | null
-          id?: number
-          room_id: number
-          status?: string | null
-          title: string
-        }
-        Update: {
-          assigned_to?: string | null
-          created_at?: string | null
-          description?: string | null
-          due_date?: string | null
-          id?: number
-          room_id?: number
-          status?: string | null
-          title?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tasks_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tasks_room_id_fkey"
-            columns: ["room_id"]
-            isOneToOne: false
-            referencedRelation: "rooms"
             referencedColumns: ["id"]
           },
         ]
@@ -545,55 +500,6 @@ export type Database = {
           username?: string
         }
         Relationships: []
-      }
-      votes: {
-        Row: {
-          comment_id: number | null
-          id: number
-          post_id: number | null
-          user_id: string
-          vote_type: string | null
-          voted_at: string | null
-        }
-        Insert: {
-          comment_id?: number | null
-          id?: number
-          post_id?: number | null
-          user_id: string
-          vote_type?: string | null
-          voted_at?: string | null
-        }
-        Update: {
-          comment_id?: number | null
-          id?: number
-          post_id?: number | null
-          user_id?: string
-          vote_type?: string | null
-          voted_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "votes_comment_id_fkey"
-            columns: ["comment_id"]
-            isOneToOne: false
-            referencedRelation: "comments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "votes_post_id_fkey"
-            columns: ["post_id"]
-            isOneToOne: false
-            referencedRelation: "posts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "votes_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
       }
     }
     Views: {

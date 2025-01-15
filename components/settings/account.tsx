@@ -20,8 +20,8 @@ import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/utils/supabase/client";
-import { useUser } from "@/providers/user";
 import { Textarea } from "../ui/textarea";
+import { useUserStore } from "@/providers/user_store";
 
 // Define the form schema with Zod
 const userFormSchema = z.object({
@@ -51,7 +51,7 @@ const userFormSchema = z.object({
 type UserFormValues = z.infer<typeof userFormSchema>;
 
 export function AccountSettingsSection() {
-  const { user } = useUser();
+  const { user, updateUser } = useUserStore();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -61,8 +61,8 @@ export function AccountSettingsSection() {
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
     defaultValues: {
-      username: user?.username,
-      bio: user?.bio,
+      username: user?.username || "",
+      bio: user?.bio || "",
       profile_picture: null,
     },
   });
@@ -122,6 +122,8 @@ export function AccountSettingsSection() {
           .eq("id", user.id);
 
         if (error) throw error;
+
+        await updateUser(updateData);
 
         toast({
           title: "Success",

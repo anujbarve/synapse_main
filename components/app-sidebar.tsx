@@ -26,7 +26,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { useUser } from "@/providers/user"
+import { useUserStore } from "@/providers/user_store"
 
 const data = {
   user: {
@@ -91,7 +91,7 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
-  const { user } = useUser();
+  const { user } = useUserStore();
 
   return (
     <Sidebar variant="inset" {...props}>

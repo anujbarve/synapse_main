@@ -11,8 +11,22 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { createClient } from "@/utils/supabase/client";
 
-export default function Page() {
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const id = (await params).id;
+  const supabase = await createClient();
+
+  const { data: community } = await supabase
+    .from("community")
+    .select()
+    .eq("id", id)
+    .single();
+
   return (
     <>
       <header className="flex h-16 shrink-0 items-center gap-2">
@@ -26,7 +40,7 @@ export default function Page() {
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbPage>Design Engineering</BreadcrumbPage>
+                <BreadcrumbPage>{community?.name}</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
@@ -38,7 +52,15 @@ export default function Page() {
         <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4 w-full">
           {/* Community Info Card - Show at top on mobile */}
           <div className="col-span-1 md:col-span-1 md:order-2 lg:col-span-3 md:sticky md:top-4">
-            <CommunityInfoCard />
+            <CommunityInfoCard
+              name={community?.name}
+              description={community?.description}
+              banner_picture={community?.banner_picture}
+              created_at={community?.created_at}
+              members={""}
+              online_members={""}
+              ranking={""}
+            />
           </div>
 
           {/* Main Content Area */}
@@ -46,7 +68,7 @@ export default function Page() {
             <div className="mb-4">
               <CreateCommunity />
             </div>
-            
+
             {/* Posts */}
             <div className="space-y-4">
               <Post

@@ -23,9 +23,7 @@ export default async function RoomPage({
 
   const supabase = await createClient();
   const { data : userdata } = await supabase.from("users").select().eq("username",slug).single();
-  if(userdata) {
-    console.log(userdata.id);
-  }  
+
   return (
     <>
       {/* Header with Sidebar Trigger and Breadcrumb */}
