@@ -17,6 +17,9 @@ import Image from "next/image";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
 import { useCommunityPresence } from "@/stores/user_online_store";
+import { useToast } from "@/hooks/use-toast";
+import { useSingleCommunityStore } from "@/stores/single_community_store";
+import { useUserStore } from "@/stores/user_store";
 
 interface User {
   id: string;
@@ -32,9 +35,9 @@ interface CommunityInfo {
   created_at: string | null | undefined;
   members: string | undefined;
   online_members: string | undefined;
-  ranking: string | undefined;
   users?: User[];
   communityId?: number;
+  isMember: boolean;
 }
 
 export function CommunityInfoCard({
@@ -44,12 +47,29 @@ export function CommunityInfoCard({
   created_at,
   members,
   online_members,
-  ranking,
   users = [],
   communityId,
+  isMember,
 }: CommunityInfo) {
   const [showAllMembers, setShowAllMembers] = React.useState(false);
   const { onlineMembers } = useCommunityPresence(communityId || 0);
+  const { joinCommunity } = useSingleCommunityStore();
+  const { user } = useUserStore();
+  const { toast } = useToast();
+
+  const handleJoinCommunity = async () => {
+    if (user && communityId) {
+      try {
+        await joinCommunity(communityId.toString(), user.id);
+        toast({
+          title: "Success",
+          description: "Room Joined Successfully",
+        }); // Navigate to the community after successful join
+      } catch (error) {
+        console.error("Error joining community:", error);
+      }
+    }
+  };
 
   return (
     <Card>
@@ -80,7 +100,7 @@ export function CommunityInfoCard({
       <CardContent>
         <div className="space-y-4">
           {/* Community Stats */}
-          <div className="grid grid-cols-3 gap-4 border-b pb-4">
+          <div className="grid grid-cols-2 gap-4 border-b pb-4">
             <div className="text-center">
               <p className="font-bold">{members}</p>
               <p className="text-xs text-muted-foreground">Members</p>
@@ -88,10 +108,6 @@ export function CommunityInfoCard({
             <div className="text-center">
               <p className="font-bold">{online_members}</p>
               <p className="text-xs text-muted-foreground">Online</p>
-            </div>
-            <div className="text-center">
-              <p className="font-bold">#{ranking}</p>
-              <p className="text-xs text-muted-foreground">Ranking</p>
             </div>
           </div>
 
@@ -141,7 +157,9 @@ export function CommunityInfoCard({
                         <span
                           className={cn(
                             "absolute bottom-0 right-0 h-2 w-2 rounded-full ring-2 ring-white",
-                            !!onlineMembers[user.id] ? "bg-green-500" : "bg-gray-300"
+                            !!onlineMembers[user.id]
+                              ? "bg-green-500"
+                              : "bg-gray-300"
                           )}
                         />
                       </div>
@@ -191,10 +209,13 @@ export function CommunityInfoCard({
         </div>
       </CardContent>
       <CardFooter className="flex flex-col space-y-2">
-        <Button className="w-full">Join Community</Button>
-        <Button variant="outline" className="w-full">
-          Create Post
-        </Button>
+        {isMember ? (
+          <Button variant="default" className="w-full">
+            Create Post
+          </Button>
+        ) : (
+          <Button className="w-full" onClick={handleJoinCommunity} >Join Community</Button>
+        )}
       </CardFooter>
     </Card>
   );

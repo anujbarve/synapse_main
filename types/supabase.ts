@@ -442,32 +442,6 @@ export type Database = {
           },
         ]
       }
-      user_statuses: {
-        Row: {
-          last_seen: string | null
-          status: string | null
-          user_id: string
-        }
-        Insert: {
-          last_seen?: string | null
-          status?: string | null
-          user_id: string
-        }
-        Update: {
-          last_seen?: string | null
-          status?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_statuses_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       users: {
         Row: {
           bio: string | null
@@ -506,7 +480,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_community_with_ranking: {
+        Args: {
+          input_community_id: number
+        }
+        Returns: {
+          community_id: number
+          community_name: string
+          total_users: number
+          ranking: number
+        }[]
+      }
+      mark_inactive_users_offline: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { createClient } from "@/utils/supabase/client";
+import React from 'react';
 
 // Define community interface
 interface Community {
@@ -17,9 +18,11 @@ interface Community {
 
 interface CommunityStore {
   communities: Community[];
+  userCommunities: Community[];
   loading: boolean;
   error: string | null;
   fetchCommunities: () => Promise<void>;
+  fetchUserCommunities: (userId: string) => Promise<void>;
   setCommunities: (communities: Community[]) => void;
   addCommunity: (community: Community) => void;
   updateCommunity: (id: number, updates: Partial<Community>) => void;
@@ -28,13 +31,14 @@ interface CommunityStore {
 
 export const useCommunityStore = create<CommunityStore>((set, get) => ({
   communities: [],
+  userCommunities: [],
   loading: false,
   error: null,
 
   fetchCommunities: async () => {
     set({ loading: true, error: null });
     try {
-        console.log("Community API Called");
+      console.log("Community API Called");
       const supabase = createClient();
       const { data, error } = await supabase
         .from("community")
@@ -43,6 +47,36 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
 
       if (error) throw error;
       set({ communities: data || [] });
+    } catch (error) {
+      set({ error: (error as Error).message });
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  fetchUserCommunities: async (userId: string) => {
+    set({ loading: true, error: null });
+    try {
+      console.log("Fetching User Communities");
+      const supabase = createClient();
+      
+      const { data, error } = await supabase
+        .from("community")
+        .select(`
+          *,
+          community_members!inner (
+            user_id,
+            role
+          )
+        `)
+        .eq('community_members.user_id', userId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      
+      // Filter out the nested community_members data to match the Community interface
+      const cleanedData = data?.map(({ community_members, ...community }) => community) || [];
+      set({ userCommunities: cleanedData });
     } catch (error) {
       set({ error: (error as Error).message });
     } finally {
@@ -74,3 +108,8 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
     }));
   },
 }));
+
+export const useIsCommunityMember = (communityId: number) => {
+  const { userCommunities } = useCommunityStore();
+  return React.useMemo(() => userCommunities.some(community => community.id === communityId), [userCommunities, communityId]);
+}

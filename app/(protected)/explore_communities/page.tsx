@@ -13,13 +13,25 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useCommunityStore } from "@/stores/communities_store";
+import { useUserStore } from "@/stores/user_store";
 
 export default function Page() {
-  const { communities, loading, error, fetchCommunities } = useCommunityStore();
+  const { communities, loading, error, fetchCommunities, userCommunities, fetchUserCommunities } = useCommunityStore();
+  const { user } = useUserStore();
 
   useEffect(() => {
     fetchCommunities();
   }, [fetchCommunities]);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchUserCommunities(user.id);
+    }
+  }, [user?.id, fetchUserCommunities]);
+
+  const isMemberOfCommunity = (communityId: number) => {
+    return userCommunities.some(community => community.id === communityId);
+  };
 
   if (loading) {
     return <div>Loading...</div>;
@@ -57,7 +69,8 @@ export default function Page() {
                 id={community.id.toString()}
                 title={community.name}
                 description={community.description}
-                banner_picture={community.banner_picture}
+                banner_picture={community.banner_picture} 
+                isMember={isMemberOfCommunity(community.id)}
               />
             </div>
           ))}

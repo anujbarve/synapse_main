@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useCommunityPresence } from "@/stores/user_online_store";
 import { CommunityInfoCard } from "@/components/community-info-card";
 import { CreateCommunity } from "@/components/create-community";
 import { Post } from "@/components/post";
-import { createClient } from "@/utils/supabase/client";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -17,6 +16,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { CommunityPresenceProvider } from "@/components/community-presence";
+import { useSingleCommunityStore } from "@/stores/single_community_store";
+import { useUserStore } from "@/stores/user_store";
 
 interface User {
   id: string;
@@ -25,74 +26,17 @@ interface User {
   role?: "admin" | "moderator" | "member";
 }
 
-interface CommunityMember {
-  id: string;
-  username: string;
-  profile_picture: string | null;
-  role: string | null;
-  joined_at: string | null;
-}
-
-interface Community {
-    id: number;
-    name: string;
-    description: string | null;
-    banner_picture: string | null;
-    created_at: string | null;
-    created_by: string;
-    is_private: boolean | null;
-    updated_at: string | null;
-}
-
 export function CommunityContent({ communityId }: { communityId: string }) {
-  const [community, setCommunity] = useState<Community | null>(null);
-  const [members, setMembers] = useState<CommunityMember[]>([]);
+  const { user } = useUserStore();
+  const { community, members, fetchCommunityData,setCurrentCommunity } = useSingleCommunityStore();
   const { onlineCount, totalMembers, onlineMembers } = useCommunityPresence(
     parseInt(communityId)
   );
-
   useEffect(() => {
-    async function fetchData() {
-      const supabase = createClient();
+    fetchCommunityData(communityId);
+    setCurrentCommunity(parseInt(communityId));
+  }, [communityId, fetchCommunityData]);
 
-      // Fetch community data
-      const { data: communityData } = await supabase
-        .from("community")
-        .select()
-        .eq("id", communityId)
-        .single();
-
-      setCommunity(communityData);
-
-      // Fetch community members
-      const { data: membersData } = await supabase
-        .from("community_members")
-        .select(`
-          user_id,
-          role,
-          joined_at,
-          users:user_id (
-            id,
-            username,
-            profile_picture
-          )
-        `)
-        .eq("community_id", communityId);
-
-      if (membersData) {
-        const formattedMembers: CommunityMember[] = membersData.map((member) => ({
-          id: member.users.id,
-          username: member.users.username,
-          profile_picture: member.users.profile_picture,
-          role: member.role,
-          joined_at: member.joined_at || new Date().toISOString(),
-        }));
-        setMembers(formattedMembers);
-      }
-    }
-
-    fetchData();
-  }, [communityId]);
 
   const getRoleAsType = (role: string | null): "admin" | "moderator" | "member" | undefined => {
     switch (role) {
@@ -117,6 +61,11 @@ export function CommunityContent({ communityId }: { communityId: string }) {
 
   if (!community) {
     return <div>Loading...</div>;
+  }
+
+  let isMember = false;
+  if(user){
+    isMember = members.some(member => member.id === user.id);
   }
 
   return (
@@ -150,9 +99,9 @@ export function CommunityContent({ communityId }: { communityId: string }) {
               created_at={community?.created_at}
               members={totalMembers.toString()}
               online_members={onlineCount.toString()}
-              ranking={""}
               users={membersWithStatus}
               communityId={parseInt(communityId)}
+              isMember={isMember}
             />
           </div>
 

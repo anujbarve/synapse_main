@@ -9,7 +9,6 @@ import {
   LogOut,
   Moon,
   Settings,
-  Sparkles,
   Sun,
 } from "lucide-react";
 
@@ -35,6 +34,7 @@ import { useState } from "react";
 import { logOut } from "@/actions/auth";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
+import React from "react";
 
 export function NavUser({
   user,
@@ -70,6 +70,7 @@ export function NavUser({
       description: "Notification Description",
     });
   };
+
 
   return (
     <SidebarMenu>
@@ -127,13 +128,9 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <Sparkles />
-                Upgrade to Pro
-              </DropdownMenuItem>
               <Link href={"create_community"}>
                 <DropdownMenuItem>
-                <CirclePlus />
+                  <CirclePlus />
                   Create Community
                 </DropdownMenuItem>
               </Link>
