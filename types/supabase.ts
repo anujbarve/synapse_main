@@ -133,6 +133,63 @@ export type Database = {
           },
         ]
       }
+      community_channels: {
+        Row: {
+          community_id: number
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: number
+          is_default: boolean | null
+          is_private: boolean | null
+          name: string
+          position: number | null
+          type: Database["public"]["Enums"]["channel_type"]
+          updated_at: string | null
+        }
+        Insert: {
+          community_id: number
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          id?: number
+          is_default?: boolean | null
+          is_private?: boolean | null
+          name: string
+          position?: number | null
+          type?: Database["public"]["Enums"]["channel_type"]
+          updated_at?: string | null
+        }
+        Update: {
+          community_id?: number
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          id?: number
+          is_default?: boolean | null
+          is_private?: boolean | null
+          name?: string
+          position?: number | null
+          type?: Database["public"]["Enums"]["channel_type"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channels_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "community"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channels_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       community_members: {
         Row: {
           community_id: number
@@ -480,16 +537,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_community_with_ranking: {
+      create_default_community_channels: {
         Args: {
-          input_community_id: number
+          p_community_id: number
+          p_created_by: string
         }
-        Returns: {
-          community_id: number
-          community_name: string
-          total_users: number
-          ranking: number
-        }[]
+        Returns: undefined
       }
       mark_inactive_users_offline: {
         Args: Record<PropertyKey, never>
@@ -497,7 +550,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      channel_type: "text" | "audio" | "video"
     }
     CompositeTypes: {
       [_ in never]: never

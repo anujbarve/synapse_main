@@ -5,6 +5,8 @@ import { LiveKitRoom, VideoConference } from "@livekit/components-react";
 import "@livekit/components-styles";
 import { Loader2 } from "lucide-react";
 import { useUserStore } from "@/stores/user_store";
+import { CommunityPresenceProvider } from "../community-presence";
+import { useSingleCommunityStore } from "@/stores/single_community_store";
 
 interface MediaRoomProps {
   chatId: string;
@@ -15,6 +17,7 @@ interface MediaRoomProps {
 export const MediaRoom = ({ chatId, video, audio }: MediaRoomProps) => {
   const { user } = useUserStore();
   const [token, setToken] = useState<string>("");
+  const {currentCommunity} = useSingleCommunityStore();
 
   // Fetch user details when authenticated
 
@@ -59,6 +62,7 @@ export const MediaRoom = ({ chatId, video, audio }: MediaRoomProps) => {
       video={video} // Enable video if true
       audio={audio} // Enable audio if true
     >
+      <CommunityPresenceProvider communityId={currentCommunity} />
       <VideoConference />
     </LiveKitRoom>
   );

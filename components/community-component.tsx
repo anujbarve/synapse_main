@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { useCommunityPresence } from "@/stores/user_online_store";
 import { CommunityInfoCard } from "@/components/community-info-card";
-import { CreateCommunity } from "@/components/create-community";
 import { Post } from "@/components/post";
 import {
   Breadcrumb,
@@ -106,9 +105,9 @@ export function CommunityContent({ communityId }: { communityId: string }) {
           </div>
 
           <div className="col-span-1 md:col-span-3 md:order-1 lg:col-span-5 space-y-4">
-            <div className="mb-4">
+            {/* <div className="mb-4">
               <CreateCommunity />
-            </div>
+            </div> */}
 
             <div className="space-y-4">
               <Post

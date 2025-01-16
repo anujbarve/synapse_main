@@ -1,5 +1,6 @@
 import * as React from "react";
 import {
+  Book,
   Home,
   Lightbulb,
   Settings2,
@@ -26,6 +27,7 @@ import { useCommunityStore } from "@/stores/communities_store";
 import { useEffect } from "react";
 import { useSingleCommunityStore } from "@/stores/single_community_store";
 import { CommunitySettingsDialog } from "./community/community-settings";
+import { NavRooms } from "./nav-rooms";
 
 const data = {
   navMain: [
@@ -49,6 +51,58 @@ const community_data = {
       items: [],
     },
   ],
+  navRooms : [
+    {
+      name: "Study Room 1",
+      url: "/room/r1",
+      icon: Book
+    },
+    {
+      name: "Study Room 2",
+      url: "/room/r2",
+      icon: Book
+    },
+    {
+      name: "Study Room 3",
+      url: "/room/r3",
+      icon: Book
+    },
+    {
+      name: "Study Room 4",
+      url: "/room/r4",
+      icon: Book
+    },
+    {
+      name: "Study Room 5",
+      url: "/room/r5",
+      icon: Book
+    },
+    {
+      name: "Study Room 6",
+      url: "/room/r6",
+      icon: Book
+    },
+    {
+      name: "Study Room 7",
+      url: "/room/r7",
+      icon: Book
+    },
+    {
+      name: "Study Room 8",
+      url: "/room/r8",
+      icon: Book
+    },
+    {
+      name: "Study Room 9",
+      url: "/room/r9",
+      icon: Book
+    },
+    {
+      name: "Study Room 10",
+      url: "/room/r10",
+      icon: Book
+    },
+  ]
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -111,7 +165,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       ) : (
         <SidebarContent>
           <NavMain items={community_data.navMain} />
-          <NavProjects projects={communityProjects} loading={loading} />
+          <NavRooms rooms={community_data.navRooms} loading={loading} />
         </SidebarContent>
       )}
 
