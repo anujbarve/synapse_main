@@ -112,7 +112,7 @@ export function NavProjects({ projects, loading = false }: NavProjectsProps) {
           <SidebarMenuItem>
             <SidebarMenuButton>
               <MoreHorizontal />
-              <span>More</span>
+              <span>Explore Communities</span>
             </SidebarMenuButton>
           </SidebarMenuItem>  
         </Link>
