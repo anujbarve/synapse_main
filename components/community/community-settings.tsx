@@ -90,7 +90,7 @@ export function CommunitySettingsDialog({
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to leave the community",
+        description: `${error}`,
         variant: "destructive",
       });
     }
