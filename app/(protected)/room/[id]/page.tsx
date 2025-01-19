@@ -41,9 +41,9 @@ export default async function RoomPage({
       </header>
       
 
-      <div className="grid grid-cols-1 h-full w-full bg-black p-4 pt-0">
+      <div className="grid grid-cols-1 h-full w-full p-4 pt-0">
         {/* MediaRoom component - displays the video/audio room */}
-        <div className="col-span-1 h-full w-full rounded-xl bg-emerald-950">
+        <div className="col-span-1 max-h-[36rem] w-full rounded-xl">
           <MediaRoom chatId={slug} video={false} audio={false} />
         </div>
       </div>

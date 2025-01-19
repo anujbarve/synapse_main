@@ -55,6 +55,7 @@ export const MediaRoom = ({ chatId, video, audio }: MediaRoomProps) => {
 
   return (
     <LiveKitRoom
+      className="rounded-lg min-h-[30rem]"
       data-lk-theme="default"
       serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL}
       token={token}

@@ -4,8 +4,22 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSingleCommunityStore } from "@/stores/single_community_store";
 import { useUserStore } from "@/stores/user_store";
-import{ useRouter }from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+
+// Move gradientVariants outside the component since it's constant
+const GRADIENT_VARIANTS = [
+  "from-blue-500 to-indigo-600",
+  "from-cyan-400 to-blue-500",
+  "from-teal-500 to-cyan-600",
+  "from-indigo-500 to-blue-700",
+  "from-blue-400 to-cyan-500",
+  "from-sky-500 to-indigo-600",
+  "from-cyan-600 to-teal-500",
+  "from-blue-600 to-sky-500",
+  "from-navy-500 to-blue-800",
+  "from-indigo-600 to-cyan-500",
+] as const;
 
 interface CommunityBannerProps {
   id: string;
@@ -42,14 +56,14 @@ export function CommunityBanner({
   const { setCurrentCommunity, joinCommunity } = useSingleCommunityStore();
   const { user } = useUserStore();
   const { toast } = useToast();
-  const router  = useRouter();
+  const router = useRouter();
 
   React.useEffect(() => {
     // Randomly select a gradient on the client side
     const randomGradient =
-      gradientVariants[Math.floor(Math.random() * gradientVariants.length)];
+      GRADIENT_VARIANTS[Math.floor(Math.random() * GRADIENT_VARIANTS.length)];
     setSelectedGradient(randomGradient);
-  }, []);
+  }, []); // No dependencies needed now as GRADIENT_VARIANTS is constant
 
   const handleSetCurrentCommunity = () => {
     setCurrentCommunity(parseInt(id));
@@ -60,8 +74,8 @@ export function CommunityBanner({
       try {
         await joinCommunity(id, user.id);
         toast({
-          title : "Success",
-          description : "Room Joined Successfully"
+          title: "Success",
+          description: "Room Joined Successfully",
         });
         router.push(`/community/${id}`); // Navigate to the community after successful join
       } catch (error) {

@@ -34,7 +34,7 @@ export function CommunityContent({ communityId }: { communityId: string }) {
   useEffect(() => {
     fetchCommunityData(communityId);
     setCurrentCommunity(parseInt(communityId));
-  }, [communityId, fetchCommunityData]);
+  }, [communityId, fetchCommunityData,setCurrentCommunity]);
 
 
   const getRoleAsType = (role: string | null): "admin" | "moderator" | "member" | undefined => {

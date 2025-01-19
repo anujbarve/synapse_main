@@ -13,7 +13,7 @@ export function CommunityPresenceProvider({
   useEffect(() => {
     initializePresence(communityId);
     return () => cleanup(communityId);
-  }, [communityId]);
+  }, [communityId, initializePresence, cleanup]); // Added missing dependencies
 
   return null;
 }
