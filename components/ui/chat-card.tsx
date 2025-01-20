@@ -9,11 +9,16 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Separator } from "@radix-ui/react-separator";
 import { SidebarTrigger } from "./sidebar";
+import useMessagesStore from "@/stores/message_store";
+import { Message as StoreMessage } from "@/types/messages";
+import { useUserStore } from "@/stores/user_store";
 
-export interface Message {
+const DEFAULT_AVATAR = "/default-avatar.png";
+
+interface UIMessage {
   id: string;
   content: string;
   sender: {
@@ -24,24 +29,14 @@ export interface Message {
   };
   timestamp: string;
   status: "sent" | "delivered" | "read";
-  reactions?: Array<{
-    emoji: string;
-    count: number;
-    reacted: boolean;
-  }>;
 }
 
 interface ChatCardProps {
   chatName?: string;
   membersCount?: number;
   onlineCount?: number;
-  initialMessages?: Message[];
-  currentUser?: {
-    name: string;
-    avatar: string;
-  };
-  onSendMessage?: (message: string) => void;
-  onReaction?: (messageId: string, emoji: string) => void;
+  receiverId?: string;
+  communityId?: number;
   onMoreClick?: () => void;
   className?: string;
 }
@@ -50,96 +45,129 @@ export function ChatCard({
   chatName = "Team Chat",
   membersCount = 3,
   onlineCount = 2,
-  initialMessages = [],
-  currentUser = {
-    name: "You",
-    avatar:
-      "https://ferf1mheo22r9ira.public.blob.vercel-storage.com/avatar-03-n0x8HFv8EUetf9z6ht0wScJKoTHqf8.png",
-  },
-  onSendMessage,
-  onReaction,
+  receiverId,
+  communityId,
   onMoreClick,
   className,
 }: ChatCardProps) {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  // All hooks must be called before any conditional returns
   const [inputValue, setInputValue] = useState("");
+  const {
+    messages,
+    loading,
+    error,
+    fetchCommunityMessages,
+    fetchDirectMessages,
+    addMessage,
+    subscribeToMessages,
+  } = useMessagesStore();
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
+  const { user } = useUserStore();
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      content: inputValue,
-      sender: {
-        name: currentUser.name,
-        avatar: currentUser.avatar,
-        isOnline: true,
-        isCurrentUser: true,
-      },
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      }),
-      status: "sent",
+  const convertToUIMessage = (message: StoreMessage): UIMessage => ({
+    id: message.id.toString(),
+    content: message.content,
+    sender: {
+      name: message.sender_id === user?.id ? user?.username : "Other User",
+      avatar: message.sender_id === user?.id 
+        ? (user?.profile_picture || DEFAULT_AVATAR)
+        : DEFAULT_AVATAR,
+      isOnline: true,
+      isCurrentUser: message.sender_id === user?.id,
+    },
+    timestamp: message.sent_at 
+      ? new Date(message.sent_at).toLocaleTimeString([], {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        })
+      : "",
+    status: message.is_read ? "read" : "delivered",
+  });
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const fetchMessages = async () => {
+      try {
+        if (communityId) {
+          await fetchCommunityMessages(communityId);
+        } else if (receiverId) {
+          await fetchDirectMessages(user.id, receiverId);
+        }
+      } catch (error) {
+        console.error("Error fetching messages:", error);
+      }
     };
 
-    setMessages((prev) => [...prev, newMessage]);
-    setInputValue("");
-    onSendMessage?.(inputValue);
+    fetchMessages();
 
-    // Имитация получения статуса сообщения
-    setTimeout(() => {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === newMessage.id ? { ...msg, status: "delivered" } : msg
-        )
-      );
-    }, 1000);
+    const channel = communityId
+      ? `community-${communityId}`
+      : `dm-${user.id}-${receiverId}`;
 
-    setTimeout(() => {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === newMessage.id ? { ...msg, status: "read" } : msg
-        )
-      );
-    }, 2000);
+    const unsubscribe = subscribeToMessages(channel);
+    return () => unsubscribe();
+  }, [
+    communityId,
+    receiverId,
+    user?.id,
+    fetchCommunityMessages,
+    fetchDirectMessages,
+    subscribeToMessages,
+  ]);
+
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || !user?.id) return;
+
+    if (!communityId && !receiverId) {
+      console.error("No valid communityId or receiverId provided");
+      return;
+    }
+
+    try {
+      const newMessage: Omit<StoreMessage, "id"> = {
+        sender_id: user.id,
+        receiver_id: receiverId || null,
+        community_id: communityId || null,
+        content: inputValue.trim(),
+        message_type: "Text",
+        file_url: null,
+        sent_at: new Date().toISOString(),
+        is_read: false,
+      };
+
+      await addMessage(newMessage);
+      setInputValue("");
+    } catch (error) {
+      console.error("Failed to send message:", error);
+    }
   };
 
-  const handleReaction = (messageId: string, emoji: string) => {
-    setMessages((prev) =>
-      prev.map((message) => {
-        if (message.id === messageId) {
-          const existingReaction = message.reactions?.find(
-            (r) => r.emoji === emoji
-          );
-          const newReactions = message.reactions || [];
-
-          if (existingReaction) {
-            return {
-              ...message,
-              reactions: newReactions.map((r) =>
-                r.emoji === emoji
-                  ? {
-                      ...r,
-                      count: r.reacted ? r.count - 1 : r.count + 1,
-                      reacted: !r.reacted,
-                    }
-                  : r
-              ),
-            };
-          } else {
-            return {
-              ...message,
-              reactions: [...newReactions, { emoji, count: 1, reacted: true }],
-            };
-          }
-        }
-        return message;
-      })
+  // Conditional renders after all hooks
+  if (!user) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <p>Please sign in to access messages</p>
+      </div>
     );
-    onReaction?.(messageId, emoji);
-  };
+  }
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-full flex items-center justify-center text-red-500">
+        Error: {error}
+      </div>
+    );
+  }
 
   return (
     <div className={cn("h-full flex flex-col", className)}>
@@ -149,7 +177,7 @@ export function ChatCard({
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <div className="relative">
-            <div className="w-10 h-10 rounded-full bg-violet-500 flex items-center justify-center text-lg font-medium text-white">
+            <div className="w-10 h-10 rounded-lg bg-violet-500 flex items-center justify-center text-lg font-medium text-white">
               {chatName.charAt(0)}
             </div>
             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 ring-2" />
@@ -172,55 +200,43 @@ export function ChatCard({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
-          <div key={message.id} className="flex items-start gap-3">
-            <Image
-              src={message.sender.avatar}
-              alt={message.sender.name}
-              width={36}
-              height={36}
-              className="rounded-full"
-            />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-medium">{message.sender.name}</span>
-                <span className="text-sm text-muted-foreground">
-                  {message.timestamp}
-                </span>
+        {messages.map((message) => {
+          const uiMessage = convertToUIMessage(message);
+          return (
+            <div key={uiMessage.id} className="flex items-start gap-3">
+              <Image
+                src={uiMessage.sender.avatar}
+                alt={uiMessage.sender.name}
+                width={36}
+                height={36}
+                className="rounded-full"
+                onError={(e) => {
+                  const img = e.target as HTMLImageElement;
+                  img.src = DEFAULT_AVATAR;
+                }}
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-medium">{uiMessage.sender.name}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {uiMessage.timestamp}
+                  </span>
+                </div>
+                <p className="break-words">{uiMessage.content}</p>
               </div>
-              <p className="break-words">{message.content}</p>
-              {message.reactions && message.reactions.length > 0 && (
-                <div className="flex items-center gap-1 mt-2">
-                  {message.reactions.map((reaction) => (
-                    <button
-                      key={reaction.emoji}
-                      onClick={() => handleReaction(message.id, reaction.emoji)}
-                      className={cn(
-                        "px-2 py-1 rounded-lg text-sm flex items-center gap-1",
-                        reaction.reacted
-                          ? "bg-violet-500/20 text-violet-400"
-                          : "bg-muted hover:bg-muted/80"
-                      )}
-                    >
-                      <span>{reaction.emoji}</span>
-                      <span>{reaction.count}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className="flex items-center self-end mb-1">
+                {uiMessage.status === "read" && (
+                  <div className="flex">
+                    <CheckCheck className="w-4 h-4 text-blue-500" />
+                  </div>
+                )}
+                {uiMessage.status === "delivered" && (
+                  <Check className="w-4 h-4 text-muted-foreground" />
+                )}
+              </div>
             </div>
-            <div className="flex items-center self-end mb-1">
-              {message.status === "read" && (
-                <div className="flex">
-                  <CheckCheck className="w-4 h-4 text-blue-500" />
-                </div>
-              )}
-              {message.status === "delivered" && (
-                <Check className="w-4 h-4 text-muted-foreground" />
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Input */}
