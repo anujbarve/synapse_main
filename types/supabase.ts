@@ -237,7 +237,7 @@ export type Database = {
           id: number
           is_read: boolean | null
           message_type: string | null
-          receiver_id: string | null
+          receiver_id: string
           sender_id: string
           sent_at: string | null
         }
@@ -248,7 +248,7 @@ export type Database = {
           id?: number
           is_read?: boolean | null
           message_type?: string | null
-          receiver_id?: string | null
+          receiver_id: string
           sender_id: string
           sent_at?: string | null
         }
@@ -259,7 +259,7 @@ export type Database = {
           id?: number
           is_read?: boolean | null
           message_type?: string | null
-          receiver_id?: string | null
+          receiver_id?: string
           sender_id?: string
           sent_at?: string | null
         }
