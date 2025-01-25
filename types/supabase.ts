@@ -34,6 +34,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      channels: {
+        Row: {
+          community_id: number
+          created_at: string | null
+          description: string | null
+          id: number
+          name: string
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          community_id: number
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          name: string
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          community_id?: number
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          name?: string
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channels_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "community"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comments: {
         Row: {
           content: string
@@ -133,63 +171,6 @@ export type Database = {
           },
         ]
       }
-      community_channels: {
-        Row: {
-          community_id: number
-          created_at: string | null
-          created_by: string
-          description: string | null
-          id: number
-          is_default: boolean | null
-          is_private: boolean | null
-          name: string
-          position: number | null
-          type: Database["public"]["Enums"]["channel_type"]
-          updated_at: string | null
-        }
-        Insert: {
-          community_id: number
-          created_at?: string | null
-          created_by: string
-          description?: string | null
-          id?: number
-          is_default?: boolean | null
-          is_private?: boolean | null
-          name: string
-          position?: number | null
-          type?: Database["public"]["Enums"]["channel_type"]
-          updated_at?: string | null
-        }
-        Update: {
-          community_id?: number
-          created_at?: string | null
-          created_by?: string
-          description?: string | null
-          id?: number
-          is_default?: boolean | null
-          is_private?: boolean | null
-          name?: string
-          position?: number | null
-          type?: Database["public"]["Enums"]["channel_type"]
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "channels_community_id_fkey"
-            columns: ["community_id"]
-            isOneToOne: false
-            referencedRelation: "community"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "channels_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       community_members: {
         Row: {
           community_id: number
@@ -237,7 +218,7 @@ export type Database = {
           id: number
           is_read: boolean | null
           message_type: string | null
-          receiver_id: string
+          receiver_id: string | null
           sender_id: string
           sent_at: string | null
         }
@@ -248,7 +229,7 @@ export type Database = {
           id?: number
           is_read?: boolean | null
           message_type?: string | null
-          receiver_id: string
+          receiver_id?: string | null
           sender_id: string
           sent_at?: string | null
         }
@@ -259,7 +240,7 @@ export type Database = {
           id?: number
           is_read?: boolean | null
           message_type?: string | null
-          receiver_id?: string
+          receiver_id?: string | null
           sender_id?: string
           sent_at?: string | null
         }

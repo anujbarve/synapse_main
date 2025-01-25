@@ -35,6 +35,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import ChannelManagementForm from "./create-channel";
+import ChannelList from "./channel-list";
 
 interface CommunitySettingsDialogProps {
   user_id: string | undefined;
@@ -51,6 +53,8 @@ type Section = {
 
 const sections: Section[] = [
   { id: "general", label: "General", icon: <Settings className="h-4 w-4" /> },
+  { id: "create_channel", label: "Create Channel", icon: <Settings className="h-4 w-4" /> },
+  { id: "channel_list", label: "Channel List", icon: <Shield className="h-4 w-4" /> },
   { id: "notifications", label: "Notifications", icon: <Bell className="h-4 w-4" /> },
   { id: "privacy", label: "Privacy & Security", icon: <Shield className="h-4 w-4" /> },
   { id: "members", label: "Members", icon: <Users className="h-4 w-4" /> },
@@ -119,6 +123,16 @@ export function CommunitySettingsDialog({
             </div>
           </div>
         );
+
+      case "create_channel":
+        return (
+          <ChannelManagementForm />
+      );
+
+      case "channel_list":
+        return (
+          <ChannelList/>
+      );
 
       case "notifications":
         return (

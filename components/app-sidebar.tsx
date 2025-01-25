@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import {
   Book,
@@ -7,6 +9,7 @@ import {
   StepBack,
   Users,
 } from "lucide-react";
+import {  Mic, Video } from "lucide-react"; // Import icons based on channel types
 
 import { NavMain } from "@/components/nav-main";
 import { NavProjects } from "./nav-communities";
@@ -26,6 +29,7 @@ import { useUserStore } from "@/stores/user_store";
 import { useCommunityStore } from "@/stores/communities_store";
 import { useEffect } from "react";
 import { useSingleCommunityStore } from "@/stores/single_community_store";
+import { useChannelStore } from "@/stores/channel_store"; // Import the channel store
 import { CommunitySettingsDialog } from "./community/community-settings";
 import { NavRooms } from "./nav-rooms";
 
@@ -41,75 +45,16 @@ const data = {
   ],
 };
 
-const community_data = {
-  navMain: [
-    {
-      title: "Back to Dashboard",
-      url: "/dashboard",
-      icon: StepBack,
-      isActive: true,
-      items: [],
-    },
-  ],
-  navRooms : [
-    {
-      name: "Study Room 1",
-      url: "/room/r1",
-      icon: Book
-    },
-    {
-      name: "Study Room 2",
-      url: "/room/r2",
-      icon: Book
-    },
-    {
-      name: "Study Room 3",
-      url: "/room/r3",
-      icon: Book
-    },
-    {
-      name: "Study Room 4",
-      url: "/room/r4",
-      icon: Book
-    },
-    {
-      name: "Study Room 5",
-      url: "/room/r5",
-      icon: Book
-    },
-    {
-      name: "Study Room 6",
-      url: "/room/r6",
-      icon: Book
-    },
-    {
-      name: "Study Room 7",
-      url: "/room/r7",
-      icon: Book
-    },
-    {
-      name: "Study Room 8",
-      url: "/room/r8",
-      icon: Book
-    },
-    {
-      name: "Study Room 9",
-      url: "/room/r9",
-      icon: Book
-    },
-    {
-      name: "Study Room 10",
-      url: "/room/r10",
-      icon: Book
-    },
-  ]
-};
-
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useUserStore();
   const { userCommunities, fetchUserCommunities, loading } =
     useCommunityStore();
   const { currentCommunity } = useSingleCommunityStore();
+  const {
+    channels,
+    fetchChannels,
+    loading: channelsLoading,
+  } = useChannelStore();
 
   useEffect(() => {
     if (user?.id) {
@@ -117,7 +62,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
   }, [user?.id, fetchUserCommunities]);
 
-  // Transform communities into the project format
+  // Fetch channels when the current community changes
+  useEffect(() => {
+    if (currentCommunity > 0) {
+      fetchChannels(currentCommunity.toString());
+    }
+  }, [currentCommunity, fetchChannels]);
+
   const communityProjects = userCommunities.map((community) => ({
     name: community.name,
     url: `/community/${community.id}`,
@@ -137,6 +88,35 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const handleDialogClose = () => {
     setIsDialogOpen(false);
   };
+
+  const transformChannelsToNavRooms = () => {
+    return channels.map((channel) => {
+      let channelIcon;
+
+      // Assign icons based on channel type
+      switch (channel.type) {
+        case "Text":
+          channelIcon = Book;  // Use Book for text-based channels
+          break;
+        case "Voice":
+          channelIcon = Mic;   // Use Mic for voice channels
+          break;
+        case "Video":
+          channelIcon = Video; // Use Video for video channels
+          break;
+        default:
+          channelIcon = Book;  // Default to Book if type is unrecognized
+          break;
+      }
+
+      return {
+        name: channel.name,
+        url: `/room/${channel.id}`,
+        icon: channelIcon,  // Assign the icon here
+      };
+    });
+  };
+
 
   return (
     <Sidebar variant="inset" {...props}>
@@ -164,8 +144,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarContent>
       ) : (
         <SidebarContent>
-          <NavMain items={community_data.navMain} />
-          <NavRooms rooms={community_data.navRooms} loading={loading} />
+          <NavMain
+            items={[
+              {
+                title: "Back to Dashboard",
+                url: "/dashboard",
+                icon: StepBack,
+                isActive: true,
+                items: [],
+              },
+            ]}
+          />
+          <NavRooms rooms={transformChannelsToNavRooms()} loading={channelsLoading} />
         </SidebarContent>
       )}
 
@@ -184,7 +174,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               </SidebarMenu>
             </SidebarGroupContent>
             {/* External Dialog Component */}
-            <CommunitySettingsDialog community_id={currentCommunity} user_id={user?.id} isOpen={isDialogOpen} onClose={handleDialogClose} />
+            <CommunitySettingsDialog
+              community_id={currentCommunity}
+              user_id={user?.id}
+              isOpen={isDialogOpen}
+              onClose={handleDialogClose}
+            />
           </SidebarGroup>
         )}
       <SidebarFooter>
