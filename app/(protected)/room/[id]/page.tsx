@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import React from "react";
 import { MediaRoom } from "@/components/livekit/mediaroom";
 
-export default async function RoomPage({
+export default async function Page({
   params,
 }: {
   params: Promise<{ id: string }>;

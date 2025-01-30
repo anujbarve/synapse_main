@@ -20,6 +20,7 @@ import { useCommunityPresence } from "@/stores/user_online_store";
 import { useToast } from "@/hooks/use-toast";
 import { useSingleCommunityStore } from "@/stores/single_community_store";
 import { useUserStore } from "@/stores/user_store";
+import Link from "next/link";
 
 interface User {
   id: string;
@@ -210,9 +211,11 @@ export function CommunityInfoCard({
       </CardContent>
       <CardFooter className="flex flex-col space-y-2">
         {isMember ? (
-          <Button variant="default" className="w-full">
+         <Link href={`/community/${communityId}/create_post`} className="w-full">
+           <Button variant="default" className="w-full">
             Create Post
           </Button>
+         </Link>
         ) : (
           <Button className="w-full" onClick={handleJoinCommunity} >Join Community</Button>
         )}

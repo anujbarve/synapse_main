@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react"; // Add useState
 import { useCommunityPresence } from "@/stores/user_online_store";
 import { CommunityInfoCard } from "@/components/community-info-card";
-import { Post } from "@/components/post";
+import { Post } from "@/components/post/post";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -17,6 +17,17 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { CommunityPresenceProvider } from "@/components/community-presence";
 import { useSingleCommunityStore } from "@/stores/single_community_store";
 import { useUserStore } from "@/stores/user_store";
+import { usePostStore } from "@/stores/post_store";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+type SortOption = "latest" | "top" | "controversial";
 
 interface User {
   id: string;
@@ -26,16 +37,19 @@ interface User {
 }
 
 export function CommunityContent({ communityId }: { communityId: string }) {
+  const [sortBy, setSortBy] = useState<SortOption>("latest");
   const { user } = useUserStore();
-  const { community, members, fetchCommunityData,setCurrentCommunity } = useSingleCommunityStore();
+  const { community, members, fetchCommunityData, setCurrentCommunity } = useSingleCommunityStore();
+  const { posts, loading: postsLoading, error: postsError, fetchPosts } = usePostStore();
   const { onlineCount, totalMembers, onlineMembers } = useCommunityPresence(
     parseInt(communityId)
   );
+
   useEffect(() => {
     fetchCommunityData(communityId);
     setCurrentCommunity(parseInt(communityId));
-  }, [communityId, fetchCommunityData,setCurrentCommunity]);
-
+    fetchPosts(parseInt(communityId));
+  }, [communityId, fetchCommunityData, setCurrentCommunity, fetchPosts]);
 
   const getRoleAsType = (role: string | null): "admin" | "moderator" | "member" | undefined => {
     switch (role) {
@@ -58,6 +72,21 @@ export function CommunityContent({ communityId }: { communityId: string }) {
     isOnline: !!onlineMembers[member.id],
   }));
 
+  const sortedPosts = [...posts].sort((a, b) => {
+    switch (sortBy) {
+      case "latest":
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      case "top":
+        return b.upvotes - a.upvotes;
+      case "controversial":
+        const aRatio = a.downvotes / (a.upvotes || 1);
+        const bRatio = b.downvotes / (b.upvotes || 1);
+        return bRatio - aRatio;
+      default:
+        return 0;
+    }
+  });
+
   if (!community) {
     return <div>Loading...</div>;
   }
@@ -66,6 +95,46 @@ export function CommunityContent({ communityId }: { communityId: string }) {
   if(user){
     isMember = members.some(member => member.id === user.id);
   }
+
+  const renderPosts = () => {
+    if (postsLoading) {
+      return Array(3).fill(0).map((_, index) => (
+        <Skeleton key={index} className="w-full h-[200px] rounded-lg" />
+      ));
+    }
+
+    if (postsError) {
+      return (
+        <div className="text-center py-8 text-red-500">
+          Error loading posts: {postsError}
+        </div>
+      );
+    }
+
+    if (!sortedPosts.length) {
+      return (
+        <div className="text-center py-8 text-gray-500">
+          No posts in this community yet
+        </div>
+      );
+    }
+
+    return sortedPosts.map((post) => (
+      <Post
+        key={post.id}
+        id={post.id}
+        roomId={post.community_id}
+        userId={post.user_id}
+        title={post.title}
+        content={post.content}
+        type={post.type}
+        upvotes={post.upvotes}
+        downvotes={post.downvotes}
+        createdAt={post.created_at}
+        author={post.author}
+      />
+    ));
+  };
 
   return (
     <>
@@ -105,33 +174,23 @@ export function CommunityContent({ communityId }: { communityId: string }) {
           </div>
 
           <div className="col-span-1 md:col-span-3 md:order-1 lg:col-span-5 space-y-4">
-            {/* <div className="mb-4">
-              <CreateCommunity />
-            </div> */}
-
+            <div className="flex justify-end mb-4">
+              <Select
+                value={sortBy}
+                onValueChange={(value) => setSortBy(value as SortOption)}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="latest">Latest</SelectItem>
+                  <SelectItem value="top">Most Upvoted</SelectItem>
+                  <SelectItem value="controversial">Controversial</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-4">
-              <Post
-                id={1}
-                roomId={123}
-                userId="anujb"
-                title="Welcome to Synapse!"
-                content="https://images.pexels.com/photos/27495274/pexels-photo-27495274/free-photo-of-aerial-view-of-the-ocean-and-a-beach.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"
-                type="Image"
-                upvotes={150}
-                downvotes={20}
-                createdAt="2025-01-13T10:00:00Z"
-              />
-              <Post
-                id={2}
-                roomId={123}
-                userId="anujb"
-                title="Welcome to Synapse!"
-                content="Hello Guys on Synapse"
-                type="Text"
-                upvotes={150}
-                downvotes={20}
-                createdAt="2025-01-13T10:00:00Z"
-              />
+              {renderPosts()}
             </div>
           </div>
         </div>

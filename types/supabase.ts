@@ -345,38 +345,38 @@ export type Database = {
       posts: {
         Row: {
           community_id: number
-          content: string | null
-          created_at: string | null
-          downvotes: number | null
+          content: string
+          created_at: string
+          downvotes: number
           id: number
           title: string
-          type: string | null
-          updated_at: string | null
-          upvotes: number | null
+          type: string
+          updated_at: string
+          upvotes: number
           user_id: string
         }
         Insert: {
           community_id: number
-          content?: string | null
-          created_at?: string | null
-          downvotes?: number | null
+          content: string
+          created_at?: string
+          downvotes?: number
           id?: number
           title: string
-          type?: string | null
-          updated_at?: string | null
-          upvotes?: number | null
+          type: string
+          updated_at?: string
+          upvotes?: number
           user_id: string
         }
         Update: {
           community_id?: number
-          content?: string | null
-          created_at?: string | null
-          downvotes?: number | null
+          content?: string
+          created_at?: string
+          downvotes?: number
           id?: number
           title?: string
-          type?: string | null
-          updated_at?: string | null
-          upvotes?: number | null
+          type?: string
+          updated_at?: string
+          upvotes?: number
           user_id?: string
         }
         Relationships: [
@@ -522,6 +522,18 @@ export type Database = {
         Args: {
           p_community_id: number
           p_created_by: string
+        }
+        Returns: undefined
+      }
+      increment_downvotes: {
+        Args: {
+          post_id: number
+        }
+        Returns: undefined
+      }
+      increment_upvotes: {
+        Args: {
+          post_id: number
         }
         Returns: undefined
       }
