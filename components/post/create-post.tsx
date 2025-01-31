@@ -322,6 +322,7 @@ export function CreatePostForm() {
                 </FormLabel>
                 <div className="space-y-4">
                   <IKUpload
+                    fileName={Date.now().toString()}
                     folder={`/posts/${postType.toLowerCase()}s`}
                     validateFile={(file: File) =>
                       file.size <= 100 * 1024 * 1024
