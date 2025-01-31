@@ -56,50 +56,46 @@ export function Post({
   author,
   community
 }: PostProps) {
-  const { upvotePost, downvotePost } = usePostStore();
+
+  const { votePost, removeVote, posts } = usePostStore();
   const { toast } = useToast();
-  const [isUpvoting, setIsUpvoting] = React.useState(false);
-  const [isDownvoting, setIsDownvoting] = React.useState(false);
+  const [isVoting, setIsVoting] = React.useState(false);
 
-  const handleUpvote = async () => {
+   // Get the current post's vote status
+   const currentPost = posts.find(p => p.id === id);
+   const userVote = currentPost?.userVote;
+
+   const handleVote = async (voteType: 'upvote' | 'downvote') => {
     try {
-      setIsUpvoting(true);
-      await upvotePost(id);
-      toast({
-        title: "Success",
-        description: "Post upvoted successfully",
-      });
+      setIsVoting(true);
+      
+      if (userVote === voteType) {
+        // If clicking the same vote type, remove the vote
+        await removeVote(id);
+        toast({
+          title: "Vote Removed",
+          description: "Your vote has been removed",
+        });
+      } else {
+        // Otherwise, cast or change the vote
+        await votePost(id, voteType);
+        toast({
+          title: "Success",
+          description: `Post ${voteType}d successfully`,
+        });
+      }
     } catch (error) {
-      console.error("Error upvoting post:", error);
+      console.error(`Error ${voteType}ing post:`, error);
       toast({
         title: "Error",
-        description: "Failed to upvote post",
+        description: `Failed to ${voteType} post`,
         variant: "destructive",
       });
     } finally {
-      setIsUpvoting(false);
+      setIsVoting(false);
     }
   };
 
-  const handleDownvote = async () => {
-    try {
-      setIsDownvoting(true);
-      await downvotePost(id);
-      toast({
-        title: "Success",
-        description: "Post downvoted successfully",
-      });
-    } catch (error) {
-      console.error("Error downvoting post:", error);
-      toast({
-        title: "Error",
-        description: "Failed to downvote post",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDownvoting(false);
-    }
-  };
 
   return (
     <Card className="w-full max-w-3xl mx-auto">
@@ -166,19 +162,21 @@ export function Post({
       <CardFooter className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button 
-            variant="outline" 
-            onClick={handleUpvote}
-            disabled={isUpvoting}
+            variant={userVote === 'upvote' ? "default" : "outline"}
+            onClick={() => handleVote('upvote')}
+            disabled={isVoting}
+            className={userVote === 'upvote' ? "bg-green-500 hover:bg-green-600" : ""}
           >
-            <ArrowUpIcon className={isUpvoting ? "animate-bounce" : ""} />
+            <ArrowUpIcon className={isVoting ? "animate-bounce" : ""} />
             {upvotes}
           </Button>
           <Button 
-            variant="outline" 
-            onClick={handleDownvote}
-            disabled={isDownvoting}
+            variant={userVote === 'downvote' ? "default" : "outline"}
+            onClick={() => handleVote('downvote')}
+            disabled={isVoting}
+            className={userVote === 'downvote' ? "bg-red-500 hover:bg-red-600" : ""}
           >
-            <ArrowDownIcon className={isDownvoting ? "animate-bounce" : ""} />
+            <ArrowDownIcon className={isVoting ? "animate-bounce" : ""} />
             {downvotes}
           </Button>
         </div>

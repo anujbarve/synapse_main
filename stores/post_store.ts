@@ -1,3 +1,7 @@
+// postStore.ts
+import { create } from 'zustand';
+import { createClient } from "@/utils/supabase/client";
+
 export type PostType = 'Text' | 'Link' | 'Image' | 'Video';
 
 export interface Post {
@@ -24,26 +28,35 @@ export interface PostWithAuthor extends Post {
   };
 }
 
-// postStore.ts
-import { create } from 'zustand';
-import { createClient } from "@/utils/supabase/client";
+export interface PostVote {
+  id: number;
+  user_id: string;
+  post_id: number;
+  vote_type: 'upvote' | 'downvote';
+  created_at: string;
+}
+
+export interface PostWithAuthorAndVote extends PostWithAuthor {
+  userVote?: 'upvote' | 'downvote' | null;
+}
 
 interface PostStore {
-  posts: PostWithAuthor[];
-  currentPost: PostWithAuthor | null;
+  posts: PostWithAuthorAndVote[];
+  currentPost: PostWithAuthorAndVote | null;
   loading: boolean;
   error: string | null;
 
   // Actions
-  fetchAllPosts: () => Promise<void>; // Add this new action
+  fetchAllPosts: () => Promise<void>;
   fetchPosts: (communityId: number) => Promise<void>;
   fetchPostById: (postId: number) => Promise<void>;
   createPost: (post: Omit<Post, 'id' | 'created_at' | 'updated_at' | 'upvotes' | 'downvotes'>) => Promise<void>;
   updatePost: (postId: number, updates: Partial<Post>) => Promise<void>;
   deletePost: (postId: number) => Promise<void>;
-  upvotePost: (postId: number) => Promise<void>;
-  downvotePost: (postId: number) => Promise<void>;
-  setCurrentPost: (post: PostWithAuthor | null) => void;
+  votePost: (postId: number, voteType: 'upvote' | 'downvote') => Promise<void>;
+  removeVote: (postId: number) => Promise<void>;
+  fetchUserVotes: () => Promise<void>;
+  setCurrentPost: (post: PostWithAuthorAndVote | null) => void;
 }
 
 export const usePostStore = create<PostStore>((set, get) => ({
@@ -54,90 +67,152 @@ export const usePostStore = create<PostStore>((set, get) => ({
 
   setCurrentPost: (post) => set({ currentPost: post }),
 
+  fetchUserVotes: async () => {
+    const supabase = createClient();
+    try {
+      const { data: userVotes, error } = await supabase
+        .from('post_votes')
+        .select('*');
+
+      if (error) throw error;
+
+      const isValidVoteType = (type: string): type is 'upvote' | 'downvote' => {
+        return type === 'upvote' || type === 'downvote';
+      };
+
+      set((state) => ({
+        posts: state.posts.map(post => {
+          const voteType = userVotes?.find(vote => vote.post_id === post.id)?.vote_type;
+          return {
+            ...post,
+            userVote: voteType && isValidVoteType(voteType) ? voteType : null
+          };
+        })
+      }));
+    } catch (error) {
+      console.error('Error fetching user votes:', error);
+    }
+  },
+
   fetchAllPosts: async () => {
     const supabase = createClient();
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          author:users!posts_user_id_fkey (
-            username,
-            profile_picture
-          ),
-          community:community!posts_community_id_fkey (
-            name,
-            banner_picture
-          )
-        `)
-        .order('created_at', { ascending: false });
+      const [postsResponse, votesResponse] = await Promise.all([
+        supabase
+          .from('posts')
+          .select(`
+            *,
+            author:users!posts_user_id_fkey (
+              username,
+              profile_picture
+            ),
+            community:community!posts_community_id_fkey (
+              name,
+              banner_picture
+            )
+          `)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('post_votes')
+          .select('*')
+      ]);
 
-      if (error) throw error;
+      if (postsResponse.error) throw postsResponse.error;
+      if (votesResponse.error) throw votesResponse.error;
 
-      const postsWithAuthor: PostWithAuthor[] = data.map((post: any) => ({
-        id: post.id,
-        community_id: post.community_id,
-        user_id: post.user_id,
-        title: post.title,
-        content: post.content,
-        type: post.type as PostType,
-        upvotes: post.upvotes || 0,
-        downvotes: post.downvotes || 0,
-        created_at: post.created_at,
-        updated_at: post.updated_at,
-        author: {
-          username: post.author.username,
-          profile_picture: post.author.profile_picture,
-        },
-        community: {
-          name: post.community.name,
-          banner_picture: post.community.banner_picture,
-        },
-      }));
+      const isValidVoteType = (type: string | null | undefined): type is 'upvote' | 'downvote' => {
+        return type === 'upvote' || type === 'downvote';
+      };
+      
+      const postsWithAuthorAndVotes: PostWithAuthorAndVote[] = postsResponse.data.map((post: any) => {
+        const voteType = votesResponse.data?.find(vote => vote.post_id === post.id)?.vote_type;
+        
+        return {
+          id: post.id,
+          community_id: post.community_id,
+          user_id: post.user_id,
+          title: post.title,
+          content: post.content,
+          type: post.type as PostType,
+          upvotes: post.upvotes || 0,
+          downvotes: post.downvotes || 0,
+          created_at: post.created_at,
+          updated_at: post.updated_at,
+          author: {
+            username: post.author.username,
+            profile_picture: post.author.profile_picture,
+          },
+          community: {
+            name: post.community.name,
+            banner_picture: post.community.banner_picture,
+          },
+          userVote: isValidVoteType(voteType) ? voteType : null
+        };
+      });
 
-      set({ posts: postsWithAuthor, loading: false });
+      set({ posts: postsWithAuthorAndVotes, loading: false });
     } catch (error) {
       console.error('Error fetching all posts:', error);
       set({ error: (error as Error).message, loading: false });
     }
   },
+
   fetchPosts: async (communityId: number) => {
     const supabase = createClient();
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          author:users!posts_user_id_fkey (
-            username,
-            profile_picture
-          )
-        `)
-        .eq('community_id', communityId)
-        .order('created_at', { ascending: false });
+      const [postsResponse, votesResponse] = await Promise.all([
+        supabase
+          .from('posts')
+          .select(`
+            *,
+            author:users!posts_user_id_fkey (
+              username,
+              profile_picture
+            )
+          `)
+          .eq('community_id', communityId)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('post_votes')
+          .select('*')
+      ]);
 
-      if (error) throw error;
+      if (postsResponse.error) throw postsResponse.error;
+      if (votesResponse.error) throw votesResponse.error;
 
-      const postsWithAuthor: PostWithAuthor[] = data.map((post: any) => ({
-        id: post.id,
-        community_id: post.community_id,
-        user_id: post.user_id,
-        title: post.title,
-        content: post.content,
-        type: post.type as PostType,
-        upvotes: post.upvotes || 0,
-        downvotes: post.downvotes || 0,
-        created_at: post.created_at,
-        updated_at: post.updated_at,
-        author: {
-          username: post.author.username,
-          profile_picture: post.author.profile_picture,
-        },
-      }));
+      const isValidVoteType = (type: string | null | undefined): type is 'upvote' | 'downvote' => {
+        return type === 'upvote' || type === 'downvote';
+      };
+      
+      const postsWithAuthorAndVotes: PostWithAuthorAndVote[] = postsResponse.data.map((post: any) => {
+        const voteType = votesResponse.data?.find(vote => vote.post_id === post.id)?.vote_type;
+        
+        return {
+          id: post.id,
+          community_id: post.community_id,
+          user_id: post.user_id,
+          title: post.title,
+          content: post.content,
+          type: post.type as PostType,
+          upvotes: post.upvotes || 0,
+          downvotes: post.downvotes || 0,
+          created_at: post.created_at,
+          updated_at: post.updated_at,
+          author: {
+            username: post.author.username,
+            profile_picture: post.author.profile_picture,
+          },
+          community: {
+            name: post.community.name,
+            banner_picture: post.community.banner_picture,
+          },
+          userVote: isValidVoteType(voteType) ? voteType : null
+        };
+      });
 
-      set({ posts: postsWithAuthor, loading: false });
+      set({ posts: postsWithAuthorAndVotes, loading: false });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
     }
@@ -147,38 +222,52 @@ export const usePostStore = create<PostStore>((set, get) => ({
     const supabase = createClient();
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          author:users!posts_user_id_fkey (
-            username,
-            profile_picture
-          )
-        `)
-        .eq('id', postId)
-        .single();
+      const [postResponse, voteResponse] = await Promise.all([
+        supabase
+          .from('posts')
+          .select(`
+            *,
+            author:users!posts_user_id_fkey (
+              username,
+              profile_picture
+            )
+          `)
+          .eq('id', postId)
+          .single(),
+        supabase
+          .from('post_votes')
+          .select('*')
+          .eq('post_id', postId)
+          .single()
+      ]);
 
-      if (error) throw error;
-
-      const postWithAuthor: PostWithAuthor = {
-        id: data.id,
-        community_id: data.community_id,
-        user_id: data.user_id,
-        title: data.title,
-        content: data.content,
-        type: data.type as PostType, // Type assertion to ensure it matches PostType
-        upvotes: data.upvotes || 0,  // Provide default value
-        downvotes: data.downvotes || 0, // Provide default value
-        created_at: data.created_at || new Date().toISOString(),
-        updated_at: data.updated_at || new Date().toISOString(),
+      if (postResponse.error) throw postResponse.error;
+      const isValidVoteType = (type: string | null | undefined): type is 'upvote' | 'downvote' => {
+        return type === 'upvote' || type === 'downvote';
+      };
+      
+      const voteType = voteResponse.data?.vote_type;
+      const validatedVoteType = isValidVoteType(voteType) ? voteType : null;
+      
+      const postWithAuthorAndVote: PostWithAuthorAndVote = {
+        id: postResponse.data.id,
+        community_id: postResponse.data.community_id,
+        user_id: postResponse.data.user_id,
+        title: postResponse.data.title,
+        content: postResponse.data.content,
+        type: postResponse.data.type as PostType,
+        upvotes: postResponse.data.upvotes || 0,
+        downvotes: postResponse.data.downvotes || 0,
+        created_at: postResponse.data.created_at,
+        updated_at: postResponse.data.updated_at,
         author: {
-          username: data.author.username,
-          profile_picture: data.author.profile_picture,
+          username: postResponse.data.author.username,
+          profile_picture: postResponse.data.author.profile_picture,
         },
+        userVote: validatedVoteType
       };
 
-      set({ currentPost: postWithAuthor, loading: false });
+      set({ currentPost: postWithAuthorAndVote, loading: false });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
     }
@@ -189,7 +278,6 @@ export const usePostStore = create<PostStore>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      // Prepare the post data with required fields
       const postData = {
         community_id: post.community_id,
         user_id: post.user_id,
@@ -197,8 +285,6 @@ export const usePostStore = create<PostStore>((set, get) => ({
         content: post.content || '', 
         type: post.type,
       };
-
-      console.log('Inserting post with data:', postData);
 
       const { data, error } = await supabase
         .from('posts')
@@ -212,12 +298,9 @@ export const usePostStore = create<PostStore>((set, get) => ({
         `)
         .single();
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      const newPost: PostWithAuthor = {
+      const newPost: PostWithAuthorAndVote = {
         id: data.id,
         community_id: data.community_id,
         user_id: data.user_id,
@@ -232,6 +315,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
           username: data.author.username,
           profile_picture: data.author.profile_picture,
         },
+        userVote: null
       };
 
       set((state) => ({
@@ -245,16 +329,14 @@ export const usePostStore = create<PostStore>((set, get) => ({
     }
   },
 
-
   updatePost: async (postId: number, updates: Partial<Post>) => {
     const supabase = createClient();
     set({ loading: true, error: null });
   
     try {
-      // Ensure content is not null
       const safeUpdates = {
         ...updates,
-        content: updates.content ?? undefined, // Convert `null` to `undefined`
+        content: updates.content ?? undefined,
       };
   
       const { data, error } = await supabase
@@ -272,7 +354,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
   
       if (error) throw error;
   
-      const updatedPost: PostWithAuthor = {
+      const updatedPost: PostWithAuthorAndVote = {
         id: data.id,
         community_id: data.community_id,
         user_id: data.user_id,
@@ -287,6 +369,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
           username: data.author.username,
           profile_picture: data.author.profile_picture,
         },
+        userVote: get().posts.find(p => p.id === postId)?.userVote || null
       };
   
       set((state) => ({
@@ -300,7 +383,6 @@ export const usePostStore = create<PostStore>((set, get) => ({
       set({ error: (error as Error).message, loading: false });
     }
   },
-  
 
   deletePost: async (postId: number) => {
     const supabase = createClient();
@@ -323,43 +405,113 @@ export const usePostStore = create<PostStore>((set, get) => ({
     }
   },
 
-  upvotePost: async (postId: number) => {
+  votePost: async (postId: number, voteType: 'upvote' | 'downvote') => {
     const supabase = createClient();
+    set({ loading: true, error: null });
+
     try {
-      const { error } = await supabase.rpc('increment_upvotes', { post_id: postId });
-  
+      // Get the current user's ID
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) throw new Error('User not authenticated');
+
+      // First, remove any existing vote
+      await supabase
+        .from('post_votes')
+        .delete()
+        .eq('post_id', postId)
+        .eq('user_id', user.id);
+
+      // Then insert the new vote
+      const { error } = await supabase
+        .from('post_votes')
+        .insert([{
+          post_id: postId,
+          user_id: user.id,
+          vote_type: voteType,
+        }]);
+
       if (error) throw error;
-  
+
+      // Update local state
       set((state) => ({
-        posts: state.posts.map((post) =>
-          post.id === postId ? { ...post, upvotes: post.upvotes + 1 } : post
-        ),
+        posts: state.posts.map(post => {
+          if (post.id === postId) {
+            const oldVote = post.userVote;
+            return {
+              ...post,
+              userVote: voteType,
+              upvotes: voteType === 'upvote' 
+                ? post.upvotes + 1 
+                : (oldVote === 'upvote' ? post.upvotes - 1 : post.upvotes),
+              downvotes: voteType === 'downvote'
+                ? post.downvotes + 1
+                : (oldVote === 'downvote' ? post.downvotes - 1 : post.downvotes)
+            };
+          }
+          return post;
+        }),
         currentPost: state.currentPost?.id === postId
-          ? { ...state.currentPost, upvotes: state.currentPost.upvotes + 1 }
+          ? {
+              ...state.currentPost,
+              userVote: voteType,
+              upvotes: voteType === 'upvote'
+                ? state.currentPost.upvotes + 1
+                : (state.currentPost.userVote === 'upvote' ? state.currentPost.upvotes - 1 : state.currentPost.upvotes),
+              downvotes: voteType === 'downvote'
+                ? state.currentPost.downvotes + 1
+                : (state.currentPost.userVote === 'downvote' ? state.currentPost.downvotes - 1 : state.currentPost.downvotes)
+            }
           : state.currentPost,
+        loading: false
       }));
     } catch (error) {
-      set({ error: (error as Error).message });
+      set({ error: (error as Error).message, loading: false });
     }
   },
 
-  downvotePost: async (postId: number) => {
+  removeVote: async (postId: number) => {
     const supabase = createClient();
+    set({ loading: true, error: null });
+
     try {
-      const { error } = await supabase.rpc('increment_downvotes', { post_id: postId });
-  
+      // Get the current user's ID
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('post_votes')
+        .delete()
+        .eq('post_id', postId)
+        .eq('user_id', user.id);
+
       if (error) throw error;
-  
+
       set((state) => ({
-        posts: state.posts.map((post) =>
-          post.id === postId ? { ...post, downvotes: post.downvotes + 1 } : post
-        ),
+        posts: state.posts.map(post => {
+          if (post.id === postId) {
+            return {
+              ...post,
+              userVote: null,
+              upvotes: post.userVote === 'upvote' ? post.upvotes - 1 : post.upvotes,
+              downvotes: post.userVote === 'downvote' ? post.downvotes - 1 : post.downvotes
+            };
+          }
+          return post;
+        }),
         currentPost: state.currentPost?.id === postId
-          ? { ...state.currentPost, downvotes: state.currentPost.downvotes + 1 }
+          ? {
+              ...state.currentPost,
+              userVote: null,
+              upvotes: state.currentPost.userVote === 'upvote' ? state.currentPost.upvotes - 1 : state.currentPost.upvotes,
+              downvotes: state.currentPost.userVote === 'downvote' ? state.currentPost.downvotes - 1 : state.currentPost.downvotes
+            }
           : state.currentPost,
+        loading: false
       }));
     } catch (error) {
-      set({ error: (error as Error).message });
+      set({ error: (error as Error).message, loading: false });
     }
-  }
+  },
 }));
