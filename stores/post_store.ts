@@ -170,6 +170,10 @@ export const usePostStore = create<PostStore>((set, get) => ({
             author:users!posts_user_id_fkey (
               username,
               profile_picture
+            ),
+            community:community!posts_community_id_fkey (
+              name,
+              banner_picture
             )
           `)
           .eq('community_id', communityId)
@@ -214,6 +218,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
 
       set({ posts: postsWithAuthorAndVotes, loading: false });
     } catch (error) {
+      console.log(error);
       set({ error: (error as Error).message, loading: false });
     }
   },
