@@ -108,7 +108,7 @@ export function Post({
             </AvatarFallback>
           </Avatar>
           <div>
-            <CardTitle className="text-lg font-bold">{title}</CardTitle>
+            <Link href={`/post/${id}`}><CardTitle className="text-lg font-bold">{title}</CardTitle></Link>
             <p className="text-sm text-muted-foreground">
               Posted by {author.username} 
               {community && (

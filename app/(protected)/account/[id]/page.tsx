@@ -14,7 +14,7 @@ import { createClient } from "@/utils/supabase/server";
 import Image from "next/image";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-export default async function RoomPage({
+export default async function AccountPage({
   params,
 }: {
   params: Promise<{ id: string }>;

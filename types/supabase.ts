@@ -72,6 +72,48 @@ export type Database = {
           },
         ]
       }
+      comment_votes: {
+        Row: {
+          comment_id: number
+          created_at: string | null
+          id: number
+          updated_at: string | null
+          user_id: string
+          vote_type: string
+        }
+        Insert: {
+          comment_id: number
+          created_at?: string | null
+          id?: number
+          updated_at?: string | null
+          user_id: string
+          vote_type: string
+        }
+        Update: {
+          comment_id?: number
+          created_at?: string | null
+          id?: number
+          updated_at?: string | null
+          user_id?: string
+          vote_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_votes_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comment_votes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comments: {
         Row: {
           content: string
