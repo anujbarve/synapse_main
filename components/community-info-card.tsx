@@ -17,10 +17,10 @@ import Image from "next/image";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
 import { useCommunityPresence } from "@/stores/user_online_store";
-import { useToast } from "@/hooks/use-toast";
 import { useSingleCommunityStore } from "@/stores/single_community_store";
 import { useUserStore } from "@/stores/user_store";
 import Link from "next/link";
+import { toast } from "sonner";
 
 interface User {
   id: string;
@@ -56,16 +56,12 @@ export function CommunityInfoCard({
   const { onlineMembers } = useCommunityPresence(communityId || 0);
   const { joinCommunity } = useSingleCommunityStore();
   const { user } = useUserStore();
-  const { toast } = useToast();
 
   const handleJoinCommunity = async () => {
     if (user && communityId) {
       try {
         await joinCommunity(communityId.toString(), user.id);
-        toast({
-          title: "Success",
-          description: "Room Joined Successfully",
-        }); // Navigate to the community after successful join
+        toast.success("Room Joined Successfully"); // Navigate to the community after successful join
       } catch (error) {
         console.error("Error joining community:", error);
       }

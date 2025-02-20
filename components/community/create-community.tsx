@@ -25,8 +25,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CalendarIcon } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 import { useUserStore } from "@/stores/user_store";
+import { toast } from "sonner";
 
 // Define the form schema with Zod
 const communityFormSchema = z.object({
@@ -64,7 +64,6 @@ export function CommunityFormAndInfo() {
   
   const supabase = createClient();
   const { user } = useUserStore();
-  const { toast } = useToast();
 
   const form = useForm<CommunityFormValues>({
     resolver: zodResolver(communityFormSchema),
@@ -119,12 +118,7 @@ export function CommunityFormAndInfo() {
           } catch (uploadError) {
             console.error("Error uploading banner picture:", uploadError);
             // Show warning toast but continue with other updates
-            toast({
-              title: "Warning",
-              description:
-                "Failed to upload banner picture, but other changes will be saved",
-              variant: "destructive",
-            });
+            toast.warning("Failed to upload banner picture, but other changes will be saved");
           }
         }
 
@@ -134,11 +128,7 @@ export function CommunityFormAndInfo() {
           .insert(insertData);
         if (insertError) {
           console.error("Error updating profile:", insertError);
-          toast({
-            title: "Error",
-            description: insertError.message,
-            variant: "destructive",
-          });
+          toast.error(insertError.message);
         }
 
         const { data: community_data } = await supabase
@@ -163,26 +153,15 @@ export function CommunityFormAndInfo() {
             .insert(insertMemberData);
           if (insertMemberError) {
             console.error("Error inserting member data profile:", insertError);
-            toast({
-              title: "Error",
-              description: insertMemberError.message,
-              variant: "destructive",
-            });
+            toast.error(insertMemberError.message);
           }
         }
       } catch (error) {
         console.error("Error Creating Community:", error);
-        toast({
-          title: "Error",
-          description: "Failed to Create Community",
-          variant: "destructive",
-        });
+        toast.error("Failed to Create Community");
       }
     }
-    toast({
-      title: "Success",
-      description: "Community Created Successfully",
-    });
+    toast.success("Community Created Successfully");
   }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {

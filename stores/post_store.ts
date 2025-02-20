@@ -45,6 +45,9 @@ interface PostStore {
   currentPost: PostWithAuthorAndVote | null;
   loading: boolean;
   error: string | null;
+  userPosts: PostWithAuthorAndVote[];
+  userPostsLoading: boolean;
+  userPostsError: string | null;
 
   // Actions
   fetchAllPosts: () => Promise<void>;
@@ -57,6 +60,9 @@ interface PostStore {
   removeVote: (postId: number) => Promise<void>;
   fetchUserVotes: () => Promise<void>;
   setCurrentPost: (post: PostWithAuthorAndVote | null) => void;
+
+  // user posts
+  fetchUserPosts: (username: string) => Promise<void>;
 }
 
 export const usePostStore = create<PostStore>((set, get) => ({
@@ -64,6 +70,93 @@ export const usePostStore = create<PostStore>((set, get) => ({
   currentPost: null,
   loading: false,
   error: null,
+  userPosts: [],
+  userPostsLoading: false,
+  userPostsError: null,
+
+  // Add new action for fetching user posts
+  fetchUserPosts: async (username: string) => {
+    const supabase = createClient();
+    set({ userPostsLoading: true, userPostsError: null });
+
+    try {
+      // First get the user ID from the username
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', username)
+        .single();
+
+      if (userError) throw userError;
+      if (!userData) throw new Error('User not found');
+
+      // Then fetch all posts by this user
+      const [postsResponse, votesResponse] = await Promise.all([
+        supabase
+          .from('posts')
+          .select(`
+            *,
+            author:users!posts_user_id_fkey (
+              username,
+              profile_picture
+            ),
+            community:community!posts_community_id_fkey (
+              name,
+              banner_picture
+            )
+          `)
+          .eq('user_id', userData.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('post_votes')
+          .select('*')
+      ]);
+
+      if (postsResponse.error) throw postsResponse.error;
+      if (votesResponse.error) throw votesResponse.error;
+
+      const isValidVoteType = (type: string | null | undefined): type is 'upvote' | 'downvote' => {
+        return type === 'upvote' || type === 'downvote';
+      };
+      
+      const postsWithAuthorAndVotes: PostWithAuthorAndVote[] = postsResponse.data.map((post: any) => {
+        const voteType = votesResponse.data?.find(vote => vote.post_id === post.id)?.vote_type;
+        
+        return {
+          id: post.id,
+          community_id: post.community_id,
+          user_id: post.user_id,
+          title: post.title,
+          content: post.content,
+          type: post.type as PostType,
+          upvotes: post.upvotes || 0,
+          downvotes: post.downvotes || 0,
+          created_at: post.created_at,
+          updated_at: post.updated_at,
+          author: {
+            username: post.author.username,
+            profile_picture: post.author.profile_picture,
+          },
+          community: post.community ? {
+            name: post.community.name,
+            banner_picture: post.community.banner_picture,
+          } : undefined,
+          userVote: isValidVoteType(voteType) ? voteType : null
+        };
+      });
+
+      set({ 
+        userPosts: postsWithAuthorAndVotes, 
+        userPostsLoading: false 
+      });
+    } catch (error) {
+      console.error('Error fetching user posts:', error);
+      set({ 
+        userPostsError: (error as Error).message, 
+        userPostsLoading: false 
+      });
+    }
+  },
 
   setCurrentPost: (post) => set({ currentPost: post }),
 
@@ -393,10 +486,12 @@ export const usePostStore = create<PostStore>((set, get) => ({
     const supabase = createClient();
     set({ loading: true, error: null });
     try {
-      const { error } = await supabase
+      const { data,error } = await supabase
         .from('posts')
         .delete()
         .eq('id', postId);
+
+      console.log(data);
 
       if (error) throw error;
 

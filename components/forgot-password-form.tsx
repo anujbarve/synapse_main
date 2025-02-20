@@ -7,8 +7,8 @@ import Image from "next/image"
 import { useState } from "react"
 import AuthButton from "./auth-button"
 import { forgotPassword } from "@/actions/auth"
-import { useToast } from "@/hooks/use-toast"
 import * as z from "zod"
+import { toast } from "sonner"
 
 export function ForgotPasswordForm({ className, ...props }: React.ComponentProps<"div">) {
 
@@ -18,7 +18,6 @@ export function ForgotPasswordForm({ className, ...props }: React.ComponentProps
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const { toast } = useToast();
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -40,10 +39,7 @@ export function ForgotPasswordForm({ className, ...props }: React.ComponentProps
 
     if (result.status === "success") {
       setError(null);
-      toast({
-        title: "Success",
-        description: "Password reset link sent to your email",
-      });
+      toast.success("Password reset link sent to your email");
     } else {
       setError(result.status);
     }

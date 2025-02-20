@@ -9,7 +9,7 @@ import {
   LogOut,
   Moon,
   Settings,
-  Sun,
+  Sun
 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -32,9 +32,9 @@ import { useTheme } from "next-themes";
 import Link from "next/link";
 import { useState } from "react";
 import { logOut } from "@/actions/auth";
-import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import React from "react";
+import { toast } from "sonner";
 
 export function NavUser({
   user,
@@ -45,7 +45,7 @@ export function NavUser({
     avatar: string;
   };
 }) {
-  const { toast } = useToast();
+
   const { isMobile } = useSidebar();
 
   const { theme, setTheme } = useTheme();
@@ -65,10 +65,7 @@ export function NavUser({
 
   const notificationToast = () => {
     console.log("toast invoked");
-    toast({
-      title: "Notification Title",
-      description: "Notification Description",
-    });
+    toast.success('Event has been created')
   };
 
 

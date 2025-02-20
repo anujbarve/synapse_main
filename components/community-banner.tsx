@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSingleCommunityStore } from "@/stores/single_community_store";
 import { useUserStore } from "@/stores/user_store";
 import { useRouter } from "next/navigation";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 // Move gradientVariants outside the component since it's constant
 const GRADIENT_VARIANTS = [
@@ -55,7 +55,6 @@ export function CommunityBanner({
 
   const { setCurrentCommunity, joinCommunity } = useSingleCommunityStore();
   const { user } = useUserStore();
-  const { toast } = useToast();
   const router = useRouter();
 
   React.useEffect(() => {
@@ -73,10 +72,7 @@ export function CommunityBanner({
     if (user) {
       try {
         await joinCommunity(id, user.id);
-        toast({
-          title: "Success",
-          description: "Room Joined Successfully",
-        });
+        toast.success("Room Joined Successfully");
         router.push(`/community/${id}`); // Navigate to the community after successful join
       } catch (error) {
         console.error("Error joining community:", error);

@@ -18,10 +18,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/utils/supabase/client";
 import { Textarea } from "../ui/textarea";
 import { useUserStore } from "@/stores/user_store";
+import { toast } from "sonner";
 
 // Define the form schema with Zod
 const userFormSchema = z.object({
@@ -52,7 +52,6 @@ type UserFormValues = z.infer<typeof userFormSchema>;
 
 export function AccountSettingsSection() {
   const { user, updateUser } = useUserStore();
-  const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const supabase = createClient();
@@ -106,12 +105,8 @@ export function AccountSettingsSection() {
           } catch (uploadError) {
             console.error("Error uploading profile picture:", uploadError);
             // Show warning toast but continue with other updates
-            toast({
-              title: "Warning",
-              description:
-                "Failed to upload profile picture, but other changes will be saved",
-              variant: "destructive",
-            });
+            toast.warning(
+                "Failed to upload profile picture, but other changes will be saved");
           }
         }
 
@@ -125,18 +120,13 @@ export function AccountSettingsSection() {
 
         await updateUser(updateData);
 
-        toast({
-          title: "Success",
-          description: "Profile updated successfully",
-        });
+        toast.success(
+          "Profile updated successfully"
+        );
         setIsEditing(false);
       } catch (error) {
         console.error("Error updating profile:", error);
-        toast({
-          title: "Error",
-          description: "Failed to update profile",
-          variant: "destructive",
-        });
+        toast.error("Failed to update profile");
       }
     }
   }

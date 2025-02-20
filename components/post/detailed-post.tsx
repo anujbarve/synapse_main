@@ -4,9 +4,12 @@ import * as React from "react";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
+  Edit,
   Heart,
   MessageSquare,
+  MoreVertical,
   Share,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,23 +23,31 @@ import { formatDistanceToNow } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { PostWithAuthorAndVote, usePostStore } from "@/stores/post_store";
-import { useToast } from "@/hooks/use-toast";
 import { IKImage, IKVideo } from "imagekitio-next";
 import {
   CommentWithAuthorAndVote,
   useCommentStore,
 } from "@/stores/comment_store";
 import { useUserStore } from "@/stores/user_store";
+import { toast } from "sonner";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
+import { AlertDialogHeader, AlertDialogFooter,AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction  } from "../ui/alert-dialog";
 
 // Create Context for Comment Functions
 interface CommentContextType {
   handleVoteComment: (commentId: number, voteType: 'upvote' | 'downvote') => Promise<void>;
   handleSubmitReply: (parentCommentId: number, content: string) => Promise<void>;
+  handleUpdateComment: (commentId: number, content: string) => Promise<void>;
+  handleDeleteComment: (commentId: number) => Promise<void>;
+  currentUserId: string | null; // Add this
 }
 
 const CommentContext = React.createContext<CommentContextType>({
   handleVoteComment: async () => {},
   handleSubmitReply: async () => {},
+  handleUpdateComment: async () => {},
+  handleDeleteComment: async () => {},
+  currentUserId: null, // Add this
 });
 
 // Reply Input Component
@@ -103,46 +114,129 @@ ReplyInput.displayName = 'ReplyInput';
 // Comment Component
 const CommentComponent = React.memo(({ comment }: { comment: CommentWithAuthorAndVote }) => {
   const [isReplying, setIsReplying] = React.useState(false);
-  const { handleVoteComment, handleSubmitReply } = React.useContext(CommentContext);
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [editContent, setEditContent] = React.useState(comment.content);
+  const { 
+    handleVoteComment, 
+    handleSubmitReply, 
+    handleUpdateComment, 
+    handleDeleteComment,
+    currentUserId 
+  } = React.useContext(CommentContext);
+
+  const isCommentOwner = currentUserId === comment.user_id;
+
+  const handleEdit = async () => {
+    try {
+      await handleUpdateComment(comment.id, editContent);
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to update comment:', error);
+      toast.error("Failed to update comment");
+    }
+  };
 
   return (
     <div className="mb-4">
-      <div className="flex items-center gap-2 mb-2">
-        <Avatar className="h-6 w-6">
-          <AvatarImage src={comment.author.profile_picture || undefined} />
-          <AvatarFallback>
-            {comment.author.username.slice(0, 2).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-        <span className="text-sm font-medium">{comment.author.username}</span>
-        <span className="text-xs text-muted-foreground">
-          {formatDistanceToNow(new Date(comment.created_at!), { addSuffix: true })}
-        </span>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Avatar className="h-6 w-6">
+            <AvatarImage src={comment.author.profile_picture || undefined} />
+            <AvatarFallback>
+              {comment.author.username.slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-sm font-medium">{comment.author.username}</span>
+          <span className="text-xs text-muted-foreground">
+            {formatDistanceToNow(new Date(comment.created_at!), { addSuffix: true })}
+          </span>
+        </div>
+        
+        {isCommentOwner && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[160px]">
+              <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setShowDeleteDialog(true)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
-      <p className="text-sm pl-8">{comment.content}</p>
-      <div className="flex items-center gap-2 mt-2 pl-8">
-        <Button 
-          variant="ghost" 
-          size="sm"
-          onClick={() => handleVoteComment(comment.id, 'upvote')}
-          className={comment.userVote === 'upvote' ? 'text-orange-500' : ''}
-        >
-          <ArrowUpIcon className="h-4 w-4" />
-          {comment.upvotes}
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="sm"
-          onClick={() => handleVoteComment(comment.id, 'downvote')}
-          className={comment.userVote === 'downvote' ? 'text-blue-500' : ''}
-        >
-          <ArrowDownIcon className="h-4 w-4" />
-          {comment.downvotes}
-        </Button>
+
+      {isEditing ? (
+        <div className="space-y-2">
+          <Textarea
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            className="min-h-[100px] resize-none"
+            placeholder="Edit your comment..."
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsEditing(false);
+                setEditContent(comment.content);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleEdit}
+              disabled={!editContent.trim() || editContent === comment.content}
+            >
+              Save
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-foreground/90 whitespace-pre-wrap">
+          {comment.content}
+        </p>
+      )}
+
+      <div className="flex items-center gap-2 mt-2">
+        <div className="flex items-center">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => handleVoteComment(comment.id, 'upvote')}
+            className={`px-2 ${comment.userVote === 'upvote' ? 'text-orange-500' : ''}`}
+          >
+            <ArrowUpIcon className="h-4 w-4" />
+            <span className="ml-1">{comment.upvotes}</span>
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => handleVoteComment(comment.id, 'downvote')}
+            className={`px-2 ${comment.userVote === 'downvote' ? 'text-blue-500' : ''}`}
+          >
+            <ArrowDownIcon className="h-4 w-4" />
+            <span className="ml-1">{comment.downvotes}</span>
+          </Button>
+        </div>
         <Button 
           variant="ghost" 
           size="sm"
           onClick={() => setIsReplying(!isReplying)}
+          className="px-2"
         >
           <MessageSquare className="h-4 w-4 mr-1" />
           Reply
@@ -150,22 +244,58 @@ const CommentComponent = React.memo(({ comment }: { comment: CommentWithAuthorAn
       </div>
 
       {isReplying && (
-        <ReplyInput
-          onSubmit={async (content) => {
-            await handleSubmitReply(comment.id, content);
-            setIsReplying(false);
-          }}
-          onCancel={() => setIsReplying(false)}
-        />
+        <div className="mt-4 pl-4 border-l-2 border-muted">
+          <ReplyInput
+            onSubmit={async (content) => {
+              await handleSubmitReply(comment.id, content);
+              setIsReplying(false);
+            }}
+            onCancel={() => setIsReplying(false)}
+          />
+        </div>
       )}
 
       {comment.replies && comment.replies.length > 0 && (
-        <div className="ml-8 mt-4 border-l-2 border-muted pl-4">
+        <div className="mt-4 pl-4 border-l-2 border-muted space-y-4">
           {comment.replies.map(reply => (
             <CommentComponent key={reply.id} comment={reply} />
           ))}
         </div>
       )}
+
+<AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="sm:max-w-[425px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Comment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this comment? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => setShowDeleteDialog(false)}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                try {
+                  await handleDeleteComment(comment.id);
+                  setShowDeleteDialog(false);
+                  toast.success("Comment deleted successfully");
+                } catch (error) {
+                  console.error('Failed to delete comment:', error);
+                  toast.error("Failed to delete comment");
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
     </div>
   );
 });
@@ -178,14 +308,15 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
   const { user } = useUserStore();
   const [newComment, setNewComment] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const { toast } = useToast();
   const { votePost, removeVote, currentPost, fetchPostById } = usePostStore();
   const { 
     comments, 
     createComment, 
     voteComment, 
     removeCommentVote,
-    fetchComments 
+    fetchComments,
+    updateComment,
+    deleteComment,
   } = useCommentStore();
 
    // Fetch post and comments data
@@ -193,6 +324,26 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
     fetchPostById(post.id);
     fetchComments(post.id);
   }, [post.id, fetchPostById, fetchComments]);
+
+  const handleUpdateComment = React.useCallback(async (commentId: number, content: string) => {
+    try {
+      await updateComment(commentId, content);
+      toast.success("Comment updated successfully");
+    } catch (error) {
+      console.error("Failed to update comment:", error);
+      toast.error("Failed to update comment");
+    }
+  }, [updateComment]);
+
+  const handleDeleteComment = React.useCallback(async (commentId: number) => {
+    try {
+      await deleteComment(commentId);
+      toast.success("Comment deleted successfully");
+    } catch (error) {
+      console.error("Failed to delete comment:", error);
+      toast.error("Failed to delete comment");
+    }
+  }, [deleteComment]);
   
   const handleVotePost = async (voteType: 'upvote' | 'downvote') => {
     try {
@@ -203,11 +354,7 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
       }
     } catch (error) {
       console.error("Failed to vote on post:", error);
-      toast({
-        title: "Error",
-        description: "Failed to vote on post",
-        variant: "destructive",
-      });
+      toast.error("Failed to vote on post");
     }
   };
 
@@ -223,23 +370,16 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
         parent_id: null
       });
       setNewComment("");
-      toast({
-        title: "Comment added",
-        description: "Your comment has been posted successfully",
-      });
+      toast.success("Your comment has been posted successfully");
     } catch (error) {
       console.error("Failed to post comment:", error);
-      toast({
-        title: "Error",
-        description: "Failed to post comment",
-        variant: "destructive",
-      });
+      toast.error("Failed to post comment");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleVoteComment = async (commentId: number, voteType: 'upvote' | 'downvote') => {
+  const handleVoteComment = React.useCallback(async (commentId: number, voteType: 'upvote' | 'downvote') => {
     try {
       const comment = comments.find(c => c.id === commentId);
       if (comment?.userVote === voteType) {
@@ -249,16 +389,12 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
       }
     } catch (error) {
       console.log("Failed to vote on comment:", error);
-      toast({
-        title: "Error",
-        description: "Failed to vote on comment",
-        variant: "destructive",
-      });
+      toast.error("Failed to vote on comment");
     }
-  };
+  }, [comments, removeCommentVote, voteComment]);
 
-  const handleSubmitReply = async (parentCommentId: number, content: string) => {
-    if (user == null) return;
+  const handleSubmitReply = React.useCallback(async (parentCommentId: number, content: string) => {
+    if (!user) return;
     try {
       await createComment({
         post_id: post.id,
@@ -266,28 +402,30 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
         content,
         parent_id: parentCommentId,
       });
-      toast({
-        title: "Success",
-        description: "Reply added successfully",
-      });
+      toast.success("Reply added successfully");
     } catch (error) {
       console.error("Failed to post reply:", error);
-      toast({
-        title: "Error",
-        description: "Failed to post reply",
-        variant: "destructive",
-      });
+      toast.error("Failed to post reply");
     }
-  };
+  }, [createComment, post.id, user]);
+
 
   const commentContextValue = React.useMemo(
     () => ({
       handleVoteComment,
       handleSubmitReply,
+      handleUpdateComment,
+      handleDeleteComment,
+      currentUserId: user?.id || null,
     }),
-    [handleVoteComment, handleSubmitReply]
+    [
+      handleVoteComment,
+      handleSubmitReply,
+      handleUpdateComment,
+      handleDeleteComment,
+      user?.id
+    ]
   );
-
 
   return (
     <div className="max-w-[1200px] mx-auto p-4 space-y-4">

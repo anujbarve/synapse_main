@@ -19,10 +19,10 @@ import {
 import { usePostStore } from "@/stores/post_store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
-import { useToast } from "@/hooks/use-toast";
 import { PostType } from "@/types/custom"; // Import your PostType
 import Link from "next/link";
 import { IKImage, IKVideo } from "imagekitio-next";
+import { toast } from "sonner";
 
 interface PostProps {
   id: number;
@@ -58,7 +58,6 @@ export function Post({
 }: PostProps) {
 
   const { votePost, removeVote, posts } = usePostStore();
-  const { toast } = useToast();
   const [isVoting, setIsVoting] = React.useState(false);
 
    // Get the current post's vote status
@@ -72,25 +71,15 @@ export function Post({
       if (userVote === voteType) {
         // If clicking the same vote type, remove the vote
         await removeVote(id);
-        toast({
-          title: "Vote Removed",
-          description: "Your vote has been removed",
-        });
+        toast.success("Your vote has been removed");
       } else {
         // Otherwise, cast or change the vote
         await votePost(id, voteType);
-        toast({
-          title: "Success",
-          description: `Post ${voteType}d successfully`,
-        });
+        toast.success(`Post ${voteType}d successfully`);
       }
     } catch (error) {
       console.error(`Error ${voteType}ing post:`, error);
-      toast({
-        title: "Error",
-        description: `Failed to ${voteType} post`,
-        variant: "destructive",
-      });
+      toast.error(`Failed to ${voteType} post`);
     } finally {
       setIsVoting(false);
     }

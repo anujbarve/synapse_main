@@ -12,16 +12,15 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useCommentStore } from "@/stores/comment_store";
 import { usePostStore } from "@/stores/post_store";
-import { useToast } from "@/hooks/use-toast";
 import React, { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 export default function PostPage({
   params,
 }: {
   params: Promise<{ id: number }>;
 }) {
-  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const { currentPost, error, fetchPostById } = usePostStore();
   const { fetchComments } = useCommentStore();
@@ -48,11 +47,7 @@ export default function PostPage({
         ]);
       } catch (error : unknown) {
         console.error('Error loading post and comments:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load post and comments",
-          variant: "destructive",
-        });
+        toast.error("Failed to load post and comments",);
       } finally {
         setIsLoading(false);
       }
@@ -63,7 +58,7 @@ export default function PostPage({
     return () => {
       // Reset stores if needed
     };
-  }, [postId, fetchPostById, fetchComments, toast]);
+  }, [postId, fetchPostById, fetchComments]);
 
   const LoadingSkeleton = () => (
     <div className="space-y-4">

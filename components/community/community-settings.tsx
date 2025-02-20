@@ -18,7 +18,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { useSingleCommunityStore } from "@/stores/single_community_store";
 import { useRouter } from "next/navigation";
-import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   Bell,
@@ -38,6 +37,7 @@ import { Switch } from "@/components/ui/switch";
 import ChannelManagementForm from "./create-channel";
 import ChannelList from "./channel-list";
 import MemberList from "./member-list";
+import { toast } from "sonner";
 
 interface CommunitySettingsDialogProps {
   user_id: string | undefined;
@@ -74,7 +74,6 @@ export function CommunitySettingsDialog({
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
   const { setCurrentCommunity, leaveCommunity } = useSingleCommunityStore();
   const router = useRouter();
-  const { toast } = useToast();
 
   const handleLeaveCommunity = () => {
     onClose();
@@ -87,18 +86,10 @@ export function CommunitySettingsDialog({
     try {
       await setCurrentCommunity(0);
       await leaveCommunity(community_id.toString(), user_id);
-      toast({
-        title: "Success",
-        description: "Successfully left the community",
-        variant: "default",
-      });
+      toast.success("Successfully left the community");
       router.push('/dashboard');
     } catch (error) {
-      toast({
-        title: "Error",
-        description: `${error}`,
-        variant: "destructive",
-      });
+      toast.error(`${error}`);
     }
     setShowAlert(false);
   };
