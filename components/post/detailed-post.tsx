@@ -660,7 +660,8 @@ const parseAndRenderTimestamps = (
 ) => {
   if (!isVideoPost) return content;
 
-  const timeRegex = /(\d{1,2}):(\d{2})(?::(\d{2}))?/g;
+  // Updated regex to properly capture groups with optional hours
+  const timeRegex = /(?:(\d{1,2}):)?(\d{1,2}):(\d{2})/g;
   const parts = [];
   let lastIndex = 0;
   let match;
@@ -671,16 +672,31 @@ const parseAndRenderTimestamps = (
     }
 
     const timestamp = match[0];
-    const [ minutes, seconds, hours] = match;
-    const totalSeconds =
-      (hours ? parseInt(hours) * 3600 : 0) +
-      parseInt(minutes) * 60 +
+    const [_, hours, minutes, seconds] = match;
+
+    console.log(_)
+
+    // Calculate total seconds
+    const totalSeconds = 
+      (hours ? parseInt(hours) * 3600 : 0) + 
+      parseInt(minutes) * 60 + 
       parseInt(seconds);
+
+    console.log({
+      timestamp,
+      hours: hours || '00',
+      minutes,
+      seconds,
+      totalSeconds
+    });
 
     parts.push(
       <button
         key={match.index}
-        onClick={() => handleTimestampClick(totalSeconds)}
+        onClick={() => {
+          console.log(`Seeking to ${totalSeconds}s (${timestamp})`);
+          handleTimestampClick(totalSeconds);
+        }}
         className="text-blue-500 hover:underline cursor-pointer"
       >
         {timestamp}
