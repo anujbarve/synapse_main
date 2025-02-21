@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   MoreVertical,
   ArrowUpIcon,
-  ArrowDownIcon,
-  MessageSquare,
+  ArrowDownIcon
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
@@ -20,9 +19,10 @@ interface PostTileProps {
   post: PostWithAuthorAndVote;
   onDeleteClick: () => void;
   isDeleting: boolean;
+  isOwner : boolean;
 }
 
-export function PostTile({ post, onDeleteClick, isDeleting }: PostTileProps) {
+export function PostTile({ post, onDeleteClick, isDeleting, isOwner }: PostTileProps) {
   return (
     <div className="bg-card rounded-lg border p-3 hover:shadow-sm transition-shadow flex items-center justify-between gap-4">
       {/* Left side - Post info */}
@@ -46,24 +46,24 @@ export function PostTile({ post, onDeleteClick, isDeleting }: PostTileProps) {
             <ArrowDownIcon className="h-4 w-4" />
             {post.downvotes}
           </div>
-          <div className="flex items-center gap-1">
-            <MessageSquare className="h-4 w-4" />0
-          </div>
         </div>
       </div>
 
       {/* Right side - Actions menu */}
+
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            disabled={isDeleting}
-          >
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
+        {isOwner && (
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              disabled={isDeleting}
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+        )}
         <DropdownMenuContent align="end">
           <DropdownMenuItem asChild>
             <Link href={`/post/${post.id}/edit`}>Edit Post</Link>

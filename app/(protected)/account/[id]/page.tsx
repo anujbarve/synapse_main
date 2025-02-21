@@ -1,3 +1,6 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -8,26 +11,37 @@ import {
 } from "@/components/ui/breadcrumb";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import React from "react";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/utils/supabase/server";
 import Image from "next/image";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PostsSection } from "@/components/account/post_section";
+import { useUserProfileStore } from "@/stores/social_store";
 
-export default async function AccountPage({
+export default function AccountPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const slug = (await params).id;
-  const supabase = await createClient();
+  const { profile, fetchUserProfile } = useUserProfileStore();
 
-  const { data: userdata } = await supabase
-    .from("users")
-    .select()
-    .eq("username", slug)
-    .single();
+  const [username, setusername] = useState<string | null>(null);
+  
+    useEffect(() => {
+      async function getParams() {
+        const resolvedParams = await params;
+        setusername(resolvedParams.id);
+      }
+      getParams();
+    }, [params]);
+
+    useEffect(() => {
+      if(!username) return; 
+      fetchUserProfile(username);
+    }, [username,fetchUserProfile]);
+
+  if (!profile) {
+    return <p className="text-center mt-10">Loading user data...</p>;
+  }
 
   return (
     <>
@@ -42,7 +56,7 @@ export default async function AccountPage({
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbPage>Account: {slug}</BreadcrumbPage>
+                <BreadcrumbPage>Account: {username}</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
@@ -55,36 +69,34 @@ export default async function AccountPage({
           <aside className="w-full lg:w-1/3 bg-card rounded-lg shadow-sm p-6">
             <div className="flex flex-col items-center gap-6">
               <Avatar className="h-32 w-32 rounded-lg">
-                {userdata.profile_picture ? (
+                {profile.profile_picture ? (
                   <Image
                     height={512}
                     width={512}
-                    src={userdata.profile_picture}
+                    src={profile.profile_picture}
                     alt="Profile Image"
                   />
                 ) : (
                   <AvatarFallback className="rounded-lg">
-                    {userdata.username.slice(0, 2).toUpperCase()}
+                    {profile.username.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 )}
               </Avatar>
               <div className="text-center">
-                <h1 className="text-xl font-bold text-primary">User: {slug}</h1>
-                <p className="text-sm text-muted-foreground">
-                  Email: {userdata.email}
-                </p>
+                <h1 className="text-xl font-bold text-primary">User: {profile.username}</h1>
+                <p className="text-sm text-muted-foreground">Email: {profile.email}</p>
               </div>
               <div className="flex w-full justify-around text-sm text-muted-foreground">
                 <div className="text-center">
-                  <p className="font-bold">123</p>
+                  <p className="font-bold">{profile.post_count}</p>
                   <p>Posts</p>
                 </div>
                 <div className="text-center">
-                  <p className="font-bold">456</p>
+                  <p className="font-bold">{profile.comment_count}</p>
                   <p>Comments</p>
                 </div>
                 <div className="text-center">
-                  <p className="font-bold">789</p>
+                  <p className="font-bold">{profile.reputation ?? 0}</p>
                   <p>Reputation</p>
                 </div>
               </div>
@@ -96,9 +108,9 @@ export default async function AccountPage({
           <section className="flex-1">
             <div className="bg-card rounded-lg shadow-sm p-6 mb-6">
               <h2 className="text-xl font-bold text-primary mb-6">
-                Posts by {slug}
+                Posts by {username}
               </h2>
-              <PostsSection username={slug} />
+              <PostsSection username={profile.username} />
             </div>
           </section>
         </main>

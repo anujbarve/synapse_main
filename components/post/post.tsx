@@ -54,20 +54,19 @@ export function Post({
   downvotes = 0,
   createdAt,
   author,
-  community
+  community,
 }: PostProps) {
-
   const { votePost, removeVote, posts } = usePostStore();
   const [isVoting, setIsVoting] = React.useState(false);
 
-   // Get the current post's vote status
-   const currentPost = posts.find(p => p.id === id);
-   const userVote = currentPost?.userVote;
+  // Get the current post's vote status
+  const currentPost = posts.find((p) => p.id === id);
+  const userVote = currentPost?.userVote;
 
-   const handleVote = async (voteType: 'upvote' | 'downvote') => {
+  const handleVote = async (voteType: "upvote" | "downvote") => {
     try {
       setIsVoting(true);
-      
+
       if (userVote === voteType) {
         // If clicking the same vote type, remove the vote
         await removeVote(id);
@@ -85,7 +84,6 @@ export function Post({
     }
   };
 
-
   return (
     <Card className="w-full max-w-3xl mx-auto">
       <CardHeader>
@@ -97,11 +95,22 @@ export function Post({
             </AvatarFallback>
           </Avatar>
           <div>
-            <Link href={`/post/${id}`}><CardTitle className="text-lg font-bold">{title}</CardTitle></Link>
+            <Link href={`/post/${id}`}>
+              <CardTitle className="text-lg font-bold">{title}</CardTitle>
+            </Link>
             <p className="text-sm text-muted-foreground">
-              Posted by {author.username} 
+              Posted by {author.username}
               {community && (
-                <> in <Link href={`/community/${roomId}`} className="hover:underline">{community.name}</Link></>
+                <>
+                  {" "}
+                  in{" "}
+                  <Link
+                    href={`/community/${roomId}`}
+                    className="hover:underline"
+                  >
+                    {community.name}
+                  </Link>
+                </>
               )}
               • {formatDistanceToNow(new Date(createdAt), { addSuffix: true })}
             </p>
@@ -150,20 +159,24 @@ export function Post({
 
       <CardFooter className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button 
-            variant={userVote === 'upvote' ? "default" : "outline"}
-            onClick={() => handleVote('upvote')}
+          <Button
+            variant={userVote === "upvote" ? "default" : "outline"}
+            onClick={() => handleVote("upvote")}
             disabled={isVoting}
-            className={userVote === 'upvote' ? "bg-green-500 hover:bg-green-600" : ""}
+            className={
+              userVote === "upvote" ? "bg-green-500 hover:bg-green-600" : ""
+            }
           >
             <ArrowUpIcon className={isVoting ? "animate-bounce" : ""} />
             {upvotes}
           </Button>
-          <Button 
-            variant={userVote === 'downvote' ? "default" : "outline"}
-            onClick={() => handleVote('downvote')}
+          <Button
+            variant={userVote === "downvote" ? "default" : "outline"}
+            onClick={() => handleVote("downvote")}
             disabled={isVoting}
-            className={userVote === 'downvote' ? "bg-red-500 hover:bg-red-600" : ""}
+            className={
+              userVote === "downvote" ? "bg-red-500 hover:bg-red-600" : ""
+            }
           >
             <ArrowDownIcon className={isVoting ? "animate-bounce" : ""} />
             {downvotes}
@@ -171,9 +184,12 @@ export function Post({
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon">
-            <MessageSquare className="h-4 w-4" />
-          </Button>
+          <Link href={`/post/${id}`}>
+            <Button variant="ghost" size="icon">
+              <MessageSquare className="h-4 w-4" />
+            </Button>
+          </Link>
+
           <Button variant="ghost" size="icon">
             <Heart className="h-4 w-4" />
           </Button>

@@ -9,12 +9,13 @@ export interface Post {
   community_id: number;
   user_id: string;
   title: string;
-  content: string | null;
+  content: string;
   type: PostType;
   upvotes: number;
   downvotes: number;
   created_at: string;
   updated_at: string;
+  description: string | null; 
 }
 
 export interface PostWithAuthor extends Post {
@@ -128,6 +129,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
           user_id: post.user_id,
           title: post.title,
           content: post.content,
+          description: post.description,
           type: post.type as PostType,
           upvotes: post.upvotes || 0,
           downvotes: post.downvotes || 0,
@@ -188,6 +190,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
   },
 
   fetchAllPosts: async () => {
+    console.info('Fetching all posts');
     const supabase = createClient();
     set({ loading: true, error: null });
     try {
@@ -227,6 +230,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
           user_id: post.user_id,
           title: post.title,
           content: post.content,
+          description: post.description,
           type: post.type as PostType,
           upvotes: post.upvotes || 0,
           downvotes: post.downvotes || 0,
@@ -252,6 +256,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
   },
 
   fetchPosts: async (communityId: number) => {
+    console.info('Fetching posts for community:', communityId);
     const supabase = createClient();
     set({ loading: true, error: null });
     try {
@@ -292,6 +297,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
           user_id: post.user_id,
           title: post.title,
           content: post.content,
+          description: post.description,
           type: post.type as PostType,
           upvotes: post.upvotes || 0,
           downvotes: post.downvotes || 0,
@@ -336,14 +342,16 @@ export const usePostStore = create<PostStore>((set, get) => ({
           .from('post_votes')
           .select('*')
           .eq('post_id', postId)
-          .single()
+          .maybeSingle() // Change from single() to maybeSingle()
       ]);
 
       if (postResponse.error) throw postResponse.error;
+      
       const isValidVoteType = (type: string | null | undefined): type is 'upvote' | 'downvote' => {
         return type === 'upvote' || type === 'downvote';
       };
       
+      // Handle the case where there might not be a vote
       const voteType = voteResponse.data?.vote_type;
       const validatedVoteType = isValidVoteType(voteType) ? voteType : null;
       
@@ -353,6 +361,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
         user_id: postResponse.data.user_id,
         title: postResponse.data.title,
         content: postResponse.data.content,
+        description: postResponse.data.description,
         type: postResponse.data.type as PostType,
         upvotes: postResponse.data.upvotes || 0,
         downvotes: postResponse.data.downvotes || 0,
@@ -380,10 +389,11 @@ export const usePostStore = create<PostStore>((set, get) => ({
         community_id: post.community_id,
         user_id: post.user_id,
         title: post.title,
-        content: post.content || '', 
+        content: post.content,
+        description: post.description,  // Add this
         type: post.type,
       };
-
+  
       const { data, error } = await supabase
         .from('posts')
         .insert([postData])
@@ -395,15 +405,16 @@ export const usePostStore = create<PostStore>((set, get) => ({
           )
         `)
         .single();
-
+  
       if (error) throw error;
-
+  
       const newPost: PostWithAuthorAndVote = {
         id: data.id,
         community_id: data.community_id,
         user_id: data.user_id,
         title: data.title,
         content: data.content,
+        description: data.description,  // Add this
         type: data.type as PostType,
         created_at: data.created_at,
         updated_at: data.updated_at,
@@ -415,7 +426,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
         },
         userVote: null
       };
-
+  
       set((state) => ({
         posts: [newPost, ...state.posts],
         loading: false,
@@ -435,6 +446,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
       const safeUpdates = {
         ...updates,
         content: updates.content ?? undefined,
+        description: updates.description?? undefined,
       };
   
       const { data, error } = await supabase
@@ -458,6 +470,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
         user_id: data.user_id,
         title: data.title,
         content: data.content,
+        description: data.description,
         type: data.type as PostType,
         upvotes: data.upvotes || 0,
         downvotes: data.downvotes || 0,

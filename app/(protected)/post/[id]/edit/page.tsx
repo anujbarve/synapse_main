@@ -1,5 +1,5 @@
 "use client";
-import { UpdatePostForm } from "@/components/post/edit-post";
+import { UpdatePostForm } from "@/components/post/update-post";
 import { usePostStore } from "@/stores/post_store";
 import { useEffect, useState } from "react";
 

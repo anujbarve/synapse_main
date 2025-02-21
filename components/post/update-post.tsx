@@ -19,8 +19,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { usePostStore, PostWithAuthorAndVote } from "@/stores/post_store";
 import { Progress } from "@/components/ui/progress";
-import { ImageKitProvider, IKUpload } from "imagekitio-next";
+import { ImageKitProvider, IKUpload, IKImage, IKVideo } from "imagekitio-next";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 const publicKey = process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY!;
 const urlEndpoint = process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!;
@@ -30,7 +31,9 @@ const updatePostSchema = z.object({
     .string()
     .min(3, "Title must be at least 3 characters")
     .max(100, "Title must be less than 100 characters"),
-  content: z.string().optional(),
+  type: z.enum(["Text", "Link", "Image", "Video"]),
+  content: z.string(), // Make content required
+  description: z.string().optional(), // Add description field
 });
 
 interface UpdatePostFormProps {
@@ -55,14 +58,19 @@ export function UpdatePostForm({ post }: UpdatePostFormProps) {
     resolver: zodResolver(updatePostSchema),
     defaultValues: {
       title: post.title,
-      content: post.content || "",
+      content: post.content ,
+      type: post.type, 
+      description: post.description || "",
     },
   });
+
+  const router = useRouter();
 
   const authenticator = async () => {
     try {
       const response = await fetch("/api/imagekit");
-      if (!response.ok) throw new Error(`Authentication failed: ${response.statusText}`);
+      if (!response.ok)
+        throw new Error(`Authentication failed: ${response.statusText}`);
       const data = await response.json();
       return data;
     } catch (error) {
@@ -85,7 +93,10 @@ export function UpdatePostForm({ post }: UpdatePostFormProps) {
     toast.success("File uploaded successfully");
   };
 
-  const handleUploadProgress = (progress: { loaded: number; total: number }) => {
+  const handleUploadProgress = (progress: {
+    loaded: number;
+    total: number;
+  }) => {
     setUploadProgress((progress.loaded / progress.total) * 100);
   };
 
@@ -94,26 +105,37 @@ export function UpdatePostForm({ post }: UpdatePostFormProps) {
     setUploadProgress(0);
   };
 
-  const onSubmit = async (data: UpdatePostFormValues) => {
+  const handleSubmit = async (data: UpdatePostFormValues) => {
+    console.log("Submitting form with data:", data);
+    
     try {
-      let finalContent = data.content || '';
+      let finalContent = data.content;
 
-      if ((post.type === "Image" || post.type === "Video") && uploadedUrl) {
-        finalContent = uploadedUrl;
+      // For media posts
+      if (post.type === "Image" || post.type === "Video") {
+        // Use new URL if uploaded, otherwise keep existing content
+        finalContent = uploadedUrl || post.content;
       }
 
-      await updatePost(post.id, {
+      const updateData = {
         title: data.title,
         content: finalContent,
-      });
+        description: data.description,
+      };
 
+      console.log("Updating post with:", updateData);
+
+      // Call the update function
+      await updatePost(post.id, updateData);
+      
       toast.success("Post updated successfully");
-
+      router.back();
     } catch (error) {
       console.error("Error updating post:", error);
       toast.error((error as Error).message);
     }
   };
+
 
   return (
     <Card className="p-6">
@@ -124,10 +146,8 @@ export function UpdatePostForm({ post }: UpdatePostFormProps) {
       >
         <h2 className="text-lg font-semibold mb-4">Update Post</h2>
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-6"
-          >
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6" noValidate={true}>
+            {/* Title Field */}
             <FormField
               control={form.control}
               name="title"
@@ -142,20 +162,43 @@ export function UpdatePostForm({ post }: UpdatePostFormProps) {
               )}
             />
 
-            {post.type === "Text" && (
+            {/* Description Field */}
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description (Optional)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Add a description to your post"
+                      className="min-h-[100px]"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Content Field for Text/Link posts */}
+            {(post.type === "Text" || post.type === "Link") && (
               <FormField
                 control={form.control}
                 name="content"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Content</FormLabel>
+                    <FormLabel>{post.type === "Text" ? "Content" : "Link URL"}</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="Write your post content"
-                        className="min-h-[200px]"
-                        {...field}
-                        value={field.value || ""}
-                      />
+                      {post.type === "Text" ? (
+                        <Textarea
+                          placeholder="Write your post content"
+                          className="min-h-[200px]"
+                          {...field}
+                        />
+                      ) : (
+                        <Input placeholder="Enter URL" {...field} />
+                      )}
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -163,38 +206,41 @@ export function UpdatePostForm({ post }: UpdatePostFormProps) {
               />
             )}
 
-            {post.type === "Link" && (
-              <FormField
-                control={form.control}
-                name="content"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Link URL</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter URL"
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
+            {/* Media Upload for Image/Video posts */}
             {(post.type === "Image" || post.type === "Video") && (
               <FormItem>
-                <FormLabel>
-                  Update {post.type === "Image" ? "Image" : "Video"}
-                </FormLabel>
+                <FormLabel>Current {post.type}</FormLabel>
                 <div className="space-y-4">
+                  {/* Current Media Preview */}
+                  <div className="mb-4">
+                    {post.type === "Image" ? (
+                      <div className="relative w-full max-h-[300px] overflow-hidden rounded-lg">
+                        <IKImage
+                          urlEndpoint={process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!}
+                          src={post.content}
+                          width={300}
+                          height={200}
+                          className="object-contain rounded-lg"
+                          alt={post.title}
+                        />
+                      </div>
+                    ) : (
+                      <div className="relative w-full aspect-video rounded-lg overflow-hidden">
+                        <IKVideo
+                          urlEndpoint={process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!}
+                          src={post.content}
+                          controls={true}
+                          className="w-full rounded-lg"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Upload New Media */}
                   <IKUpload
                     fileName={Date.now().toString()}
                     folder={`/posts/${post.type.toLowerCase()}s`}
-                    validateFile={(file: File) =>
-                      file.size <= 100 * 1024 * 1024
-                    }
+                    validateFile={(file: File) => file.size <= 100 * 1024 * 1024}
                     onError={handleUploadError}
                     onSuccess={handleUploadSuccess}
                     onUploadProgress={handleUploadProgress}
@@ -203,6 +249,7 @@ export function UpdatePostForm({ post }: UpdatePostFormProps) {
                     ref={ikUploadRef}
                     accept={post.type === "Image" ? "image/*" : "video/*"}
                   />
+
                   <Button
                     type="button"
                     onClick={() => ikUploadRef.current?.click()}
@@ -210,6 +257,7 @@ export function UpdatePostForm({ post }: UpdatePostFormProps) {
                   >
                     {isUploading ? "Uploading..." : "Choose New File"}
                   </Button>
+
                   {isUploading && (
                     <div className="space-y-2">
                       <Progress value={uploadProgress} />
@@ -218,6 +266,7 @@ export function UpdatePostForm({ post }: UpdatePostFormProps) {
                       </p>
                     </div>
                   )}
+
                   {uploadedUrl && (
                     <p className="text-sm text-green-600">
                       New file uploaded successfully
@@ -227,14 +276,19 @@ export function UpdatePostForm({ post }: UpdatePostFormProps) {
               </FormItem>
             )}
 
+            {/* Form Actions */}
             <div className="flex gap-4">
-              <Button type="submit" disabled={isUploading}>
+              <Button 
+                type="submit"
+                disabled={isUploading}
+              >
                 Update Post
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 disabled={isUploading}
+                onClick={() => router.back()}
               >
                 Cancel
               </Button>

@@ -1,6 +1,6 @@
 {
   "name": "synapse_main",
-  "version": "0.7.0",
+  "version": "0.7.5",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",

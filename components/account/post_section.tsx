@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { useUserStore } from "@/stores/user_store";
 
 export function PostsSection({ username }: { username: string }) {
   const { 
@@ -22,6 +23,8 @@ export function PostsSection({ username }: { username: string }) {
     fetchUserPosts,
     deletePost 
   } = usePostStore();
+  const { user } = useUserStore();
+  const canModifyPost = user?.username === username;
   
   const [isDeleting, setIsDeleting] = useState(false);
   const [postToDelete, setPostToDelete] = useState<number | null>(null);
@@ -76,6 +79,7 @@ export function PostsSection({ username }: { username: string }) {
               post={post}
               onDeleteClick={() => setPostToDelete(post.id)}
               isDeleting={isDeleting && postToDelete === post.id}
+              isOwner={canModifyPost}
             />
           ))
         )}

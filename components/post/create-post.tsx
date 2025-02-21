@@ -39,7 +39,8 @@ const postFormSchema = z.object({
     .min(3, "Title must be at least 3 characters")
     .max(100, "Title must be less than 100 characters"),
   type: z.enum(["Text", "Link", "Image", "Video"]),
-  content: z.string().optional(),
+  content: z.string().min(1, "Content is required"), // Make content required
+  description: z.string().optional(), // Add description field
 });
 
 interface IKUploadRef extends HTMLInputElement {
@@ -64,6 +65,7 @@ export function CreatePostForm() {
       title: "",
       type: "Text",
       content: "",
+      description: "",
     },
   });
 
@@ -95,31 +97,31 @@ export function CreatePostForm() {
     width: number;
     thumbnailUrl: string;
   }
-  
+
   // Define the error type
   type UploadError = {
     message: string;
   };
-  
+
   // Define the progress type
   interface UploadProgressEvent {
     loaded: number;
     total: number;
   }
-  
+
   const handleUploadError = (err: UploadError) => {
     console.error("Upload error:", err);
     setIsUploading(false);
     toast.error(err.message || "Failed to upload file");
   };
-  
+
   const handleUploadSuccess = (res: ImageKitResponse) => {
     console.log("Upload success:", res);
     setIsUploading(false);
     setUploadedUrl(res.url);
     toast.success("File uploaded successfully");
   };
-  
+
   const handleUploadProgress = (progress: UploadProgressEvent) => {
     setUploadProgress((progress.loaded / progress.total) * 100);
   };
@@ -131,26 +133,24 @@ export function CreatePostForm() {
 
   const onSubmit = async (data: PostFormValues) => {
     console.log("Form submitted with data:", data);
-  
+
     if (!user) {
       toast.error("You must be logged in to create a post");
       return;
     }
 
-    if(currentCommunity === 0) {
-      toast.error( "You must be in a community to create a post");
+    if (currentCommunity === 0) {
+      toast.error("You must be in a community to create a post");
       return;
     }
-  
+
     try {
-      let finalContent = '';  // Initialize with empty string instead of null
-  
+      let finalContent = data.content; // content is now required
+
       switch (data.type) {
         case "Text":
-          finalContent = data.content || '';
-          break;
         case "Link":
-          finalContent = data.content || '';  // Use content field for link
+          finalContent = data.content;
           break;
         case "Image":
         case "Video":
@@ -161,21 +161,22 @@ export function CreatePostForm() {
           finalContent = uploadedUrl;
           break;
       }
-  
+
       const postData = {
-        community_id: currentCommunity,  // Make sure this community exists
+        community_id: currentCommunity,
         user_id: user.id,
         title: data.title,
-        content: finalContent,  // This will never be null
+        content: finalContent,
+        description: data.description || null, // Add description
         type: data.type,
       };
-  
+
       console.log("Creating post with:", postData);
-  
+
       await createPost(postData);
-  
+
       toast.success("Post created successfully");
-  
+
       form.reset();
       setUploadedUrl(null);
       setUploadProgress(0);
@@ -194,10 +195,7 @@ export function CreatePostForm() {
       >
         <h2 className="text-lg font-semibold mb-4">Create Post</h2>
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-6"
-          >
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
               name="type"
@@ -285,47 +283,67 @@ export function CreatePostForm() {
             )}
 
             {(postType === "Image" || postType === "Video") && (
-              <FormItem>
-                <FormLabel>
-                  Upload {postType === "Image" ? "Image" : "Video"}
-                </FormLabel>
-                <div className="space-y-4">
-                  <IKUpload
-                    fileName={Date.now().toString()}
-                    folder={`/posts/${postType.toLowerCase()}s`}
-                    validateFile={(file: File) =>
-                      file.size <= 100 * 1024 * 1024
-                    }
-                    onError={handleUploadError}
-                    onSuccess={handleUploadSuccess}
-                    onUploadProgress={handleUploadProgress}
-                    onUploadStart={handleUploadStart}
-                    style={{ display: "none" }}
-                    ref={ikUploadRef}
-                    accept={postType === "Image" ? "image/*" : "video/*"}
-                  />
-                  <Button
-                    type="button"
-                    onClick={() => ikUploadRef.current?.click()}
-                    disabled={isUploading}
-                  >
-                    {isUploading ? "Uploading..." : "Choose File"}
-                  </Button>
-                  {isUploading && (
-                    <div className="space-y-2">
-                      <Progress value={uploadProgress} />
-                      <p className="text-sm text-muted-foreground">
-                        Uploading: {Math.round(uploadProgress)}%
+              <>
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description (Optional)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Add a description to your post"
+                          className="min-h-[100px]"
+                          {...field}
+                          value={field.value || ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormItem>
+                  <FormLabel>
+                    Upload {postType === "Image" ? "Image" : "Video"}
+                  </FormLabel>
+                  <div className="space-y-4">
+                    <IKUpload
+                      fileName={Date.now().toString()}
+                      folder={`/posts/${postType.toLowerCase()}s`}
+                      validateFile={(file: File) =>
+                        file.size <= 100 * 1024 * 1024
+                      }
+                      onError={handleUploadError}
+                      onSuccess={handleUploadSuccess}
+                      onUploadProgress={handleUploadProgress}
+                      onUploadStart={handleUploadStart}
+                      style={{ display: "none" }}
+                      ref={ikUploadRef}
+                      accept={postType === "Image" ? "image/*" : "video/*"}
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => ikUploadRef.current?.click()}
+                      disabled={isUploading}
+                    >
+                      {isUploading ? "Uploading..." : "Choose File"}
+                    </Button>
+                    {isUploading && (
+                      <div className="space-y-2">
+                        <Progress value={uploadProgress} />
+                        <p className="text-sm text-muted-foreground">
+                          Uploading: {Math.round(uploadProgress)}%
+                        </p>
+                      </div>
+                    )}
+                    {uploadedUrl && (
+                      <p className="text-sm text-green-600">
+                        File uploaded successfully
                       </p>
-                    </div>
-                  )}
-                  {uploadedUrl && (
-                    <p className="text-sm text-green-600">
-                      File uploaded successfully
-                    </p>
-                  )}
-                </div>
-              </FormItem>
+                    )}
+                  </div>
+                </FormItem>
+              </>
             )}
 
             <div className="flex gap-4">

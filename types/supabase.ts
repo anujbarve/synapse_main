@@ -118,34 +118,28 @@ export type Database = {
         Row: {
           content: string
           created_at: string | null
-          downvotes: number | null
           id: number
           parent_id: number | null
           post_id: number
           updated_at: string | null
-          upvotes: number | null
           user_id: string
         }
         Insert: {
           content: string
           created_at?: string | null
-          downvotes?: number | null
           id?: number
           parent_id?: number | null
           post_id: number
           updated_at?: string | null
-          upvotes?: number | null
           user_id: string
         }
         Update: {
           content?: string
           created_at?: string | null
-          downvotes?: number | null
           id?: number
           parent_id?: number | null
           post_id?: number
           updated_at?: string | null
-          upvotes?: number | null
           user_id?: string
         }
         Relationships: [
@@ -428,6 +422,7 @@ export type Database = {
           community_id: number
           content: string
           created_at: string
+          description: string | null
           downvotes: number
           id: number
           title: string
@@ -440,6 +435,7 @@ export type Database = {
           community_id: number
           content: string
           created_at?: string
+          description?: string | null
           downvotes?: number
           id?: number
           title: string
@@ -452,6 +448,7 @@ export type Database = {
           community_id?: number
           content?: string
           created_at?: string
+          description?: string | null
           downvotes?: number
           id?: number
           title?: string
