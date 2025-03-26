@@ -99,7 +99,14 @@ export function Post({
               <CardTitle className="text-lg font-bold">{title}</CardTitle>
             </Link>
             <p className="text-sm text-muted-foreground">
-              Posted by {author.username}
+              Posted by{" "}
+              <Link 
+
+              href={`/account/${author.username}`}
+              className="hover:underline"
+              >
+                {author.username}
+              </Link>
               {community && (
                 <>
                   {" "}

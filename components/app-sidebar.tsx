@@ -111,7 +111,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       return {
         name: channel.name,
-        url: `/room/${channel.id}`,
+        url: channel.type === "Text" ? `/community/${currentCommunity.toString() + channel.id.toString()}/chat` : `/room/${channel.id}`,
         icon: channelIcon,  // Assign the icon here
       };
     });

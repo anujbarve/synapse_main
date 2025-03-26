@@ -105,12 +105,6 @@ export function NavRooms({ rooms, loading = false }: NavProjectsProps) {
             </SidebarMenuButton>
           </SidebarMenuItem>
         )}
-        {/* <SidebarMenuItem>
-            <SidebarMenuButton>
-              <Users className="text-muted-foreground" />
-              <span className="text-muted-foreground">No Rooms Online</span>
-            </SidebarMenuButton>
-        </SidebarMenuItem> */}
       </SidebarMenu>
     </SidebarGroup>
   )
