@@ -6,66 +6,113 @@ import {
   CheckCheck,
   MoreHorizontal,
   Send,
+  Image as ImageIcon,
+  Paperclip,
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Separator } from "@radix-ui/react-separator";
 import { SidebarTrigger } from "./sidebar";
-import { useMessageStore } from "@/stores/messages_store";
+import { MessageType, useMessageStore } from "@/stores/messages_store";
 import { useUserStore } from "@/stores/user_store";
-
+import { useChannelStore } from "@/stores/channel_store";
 
 interface ChatCardProps {
   communityId?: number;
   receiverId?: string;
+  channelId?: number;
   className?: string;
 }
 
-export function ChatCard({
+export function  ChatCard({
   communityId,
   receiverId,
+  channelId,
   className,
 }: ChatCardProps) {
-
   const { user } = useUserStore();
   const [inputValue, setInputValue] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Access store methods and state
   const { 
     messages, 
-    fetchMessagesByCommunity, 
+    fetchMessagesByCommunityAndChannel, 
     fetchMessagesByReceiver, 
     sendMessage,
+    loading
   } = useMessageStore();
 
-  // Fetch messages based on community or receiver
+  const { 
+    channels
+  } = useChannelStore();
+
+  // Fetch messages based on community, channel, or receiver
   useEffect(() => {
-    if (communityId) {
-      fetchMessagesByCommunity(communityId);
+    if (communityId && channelId) {
+      fetchMessagesByCommunityAndChannel(communityId, channelId);
     } else if (receiverId) {
       fetchMessagesByReceiver(receiverId);
     }
-  }, [communityId, receiverId, fetchMessagesByCommunity, fetchMessagesByReceiver]);
+  }, [communityId, channelId, receiverId,fetchMessagesByCommunityAndChannel,fetchMessagesByReceiver]);
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || !user) return;
+    if (!inputValue.trim() && !selectedFile || !user) return;
 
     try {
-      await sendMessage({
+      let messageType: MessageType = 'Text';
+      if (selectedFile) { 
+        messageType = selectedFile.type.startsWith('image/') ? 'Image' : 'File';
+      }
+
+      const messageData = {
         sender_id: user.id,
         content: inputValue,
-        message_type: 'Text',
+        message_type: messageType,
         community_id: communityId || null,
+        channel_id: channelId || null,
         receiver_id: receiverId || null,
-        file_url: null
+        file_url: selectedFile ? URL.createObjectURL(selectedFile) : null
+      };
+
+      // Add console logs to verify data
+      console.log('Sending message with data:', {
+        communityId,
+        channelId,
+        messageData
       });
 
+      await sendMessage(messageData);
+
+      // Reset input and file
       setInputValue("");
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (error) {
       console.error("Failed to send message", error);
     }
   };
+
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setInputValue(file.name);
+    }
+  };
+
+
+  useEffect(() => {
+    console.log('ChatCard Props:', {
+      communityId,
+      channelId,
+      receiverId
+    });
+  }, [communityId, channelId, receiverId]);
+
 
   if (!user) return null; // Prevent rendering if no user
 
@@ -84,7 +131,9 @@ export function ChatCard({
           </div>
           <div>
             <h3 className="font-medium">
-              {communityId ? 'Community Chat' : 'Direct Message'}
+              {communityId 
+                ? `Community: ${channels.find(c => c.id === channelId)?.name || 'Channel'}` 
+                : 'Direct Message'}
             </h3>
           </div>
         </div>
@@ -98,38 +147,68 @@ export function ChatCard({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
-          <div key={message.id} className="flex items-start gap-3">
-            <Image
-              src={message.sender.profile_picture || '/default-avatar.png'}
-              alt={message.sender.username}
-              width={36}
-              height={36}
-              className="rounded-full"
-            />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-medium">{message.sender.username}</span>
-                <span className="text-sm text-muted-foreground">
-                  {new Date(message.sent_at).toLocaleTimeString()}
-                </span>
+        {loading ? (
+          <div className="text-center text-muted-foreground">Loading messages...</div>
+        ) : messages.length === 0 ? (
+          <div className="text-center text-muted-foreground">No messages yet</div>
+        ) : (
+          messages.map((message) => (
+            <div key={message.id} className="flex items-start gap-3">
+              <Image
+                src={message.sender.profile_picture || '/default-avatar.png'}
+                alt={message.sender.username}
+                width={36}
+                height={36}
+                className="rounded-full"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-medium">{message.sender.username}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {new Date(message.sent_at).toLocaleTimeString()}
+                  </span>
+                </div>
+                {message.message_type === 'Image' && message.file_url && (
+                  <Image 
+                    src={message.file_url} 
+                    alt="Sent image" 
+                    width={200} 
+                    height={200} 
+                    className="rounded-lg mb-2"
+                  />
+                )}
+                <p className="break-words">{message.content}</p>
               </div>
-              <p className="break-words">{message.content}</p>
+              <div className="flex items-center self-end mb-1">
+                {message.is_read ? (
+                  <CheckCheck className="w-4 h-4 text-blue-500" />
+                ) : (
+                  <Check className="w-4 h-4 text-muted-foreground" />
+                )}
+              </div>
             </div>
-            <div className="flex items-center self-end mb-1">
-              {message.is_read ? (
-                <CheckCheck className="w-4 h-4 text-blue-500" />
-              ) : (
-                <Check className="w-4 h-4 text-muted-foreground" />
-              )}
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* Input */}
       <div className="p-4 border-t shrink-0">
         <div className="flex items-center gap-2">
+          <input 
+            type="file" 
+            ref={fileInputRef}
+            className="hidden" 
+            onChange={handleFileSelect}
+            accept="image/*,application/pdf,.doc,.docx"
+          />
+          <button
+            type="button"
+            className="p-1.5 rounded-full hover:bg-muted/80"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Paperclip className="w-5 h-5" />
+          </button>
+
           <div className="relative flex-1">
             <input
               type="text"
@@ -153,11 +232,33 @@ export function ChatCard({
           </div>
           <button
             onClick={handleSendMessage}
-            className="p-2.5 rounded-lg transition-colors bg-muted hover:bg-muted/80"
+            disabled={!inputValue.trim() && !selectedFile}
+            className="p-2.5 rounded-lg transition-colors bg-muted hover:bg-muted/80 disabled:opacity-50"
           >
             <Send className="w-5 h-5" />
           </button>
         </div>
+        {selectedFile && (
+          <div className="mt-2 flex items-center justify-between bg-muted p-2 rounded-lg">
+            <div className="flex items-center">
+              {selectedFile.type.startsWith('image/') ? (
+                <ImageIcon className="w-5 h-5 mr-2" />
+              ) : (
+                <Paperclip className="w-5 h-5 mr-2" />
+              )}
+              <span>{selectedFile.name}</span>
+            </div>
+            <button 
+              onClick={() => {
+                setSelectedFile(null);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+              }}
+              className="p-1 rounded-full hover:bg-muted/80"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

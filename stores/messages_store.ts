@@ -9,6 +9,7 @@ export interface Message {
   id: number;
   sender_id: string;
   community_id: number | null;
+  channel_id: number | null;
   receiver_id: string | null;
   content: string;
   message_type: MessageType;
@@ -47,7 +48,7 @@ interface MessageStore {
   
   // Actions
   fetchAllMessages: () => Promise<void>;
-  fetchMessagesByCommunity: (communityId: number) => Promise<void>;
+  fetchMessagesByCommunityAndChannel: (communityId: number,channelId : number) => Promise<void>;
   fetchMessagesByReceiver: (receiverId: string) => Promise<void>;
   sendMessage: (message: Omit<Message, 'id' | 'sent_at' | 'is_read'>) => Promise<MessageWithSender>;
   updateMessage: (messageId: number, updates: Partial<Message>) => Promise<void>;
@@ -114,7 +115,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
   },
 
   // Fetch Messages by Community
-  fetchMessagesByCommunity: async (communityId: number) => {
+  fetchMessagesByCommunityAndChannel: async (communityId: number,channelId: number) => {
     const supabase = createClient();
     set({ loading: true, error: null });
 
@@ -133,6 +134,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
           )
         `)
         .eq('community_id', communityId)
+        .eq('channel_id', channelId)
         .order('sent_at', { ascending: false });
 
       if (error) throw error;
@@ -142,6 +144,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
         sender_id: message.sender_id,
         community_id: message.community_id,
         receiver_id: message.receiver_id,
+        channel_id : message.channel_id,
         content: message.content,
         message_type: safeMessageType(message.message_type),
         file_url: message.file_url,
@@ -250,6 +253,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
         sender_id: data.sender_id,
         community_id: data.community_id,
         receiver_id: data.receiver_id,
+        channel_id : data.channel_id,
         content: data.content,
         message_type: safeMessageType(data.message_type),
         file_url: data.file_url,
@@ -313,6 +317,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
         sender_id: data.sender_id,
         community_id: data.community_id,
         receiver_id: data.receiver_id,
+        channel_id : data.channel_id,
         content: data.content,
         message_type: safeMessageType(data.message_type),
         file_url: data.file_url,
@@ -395,6 +400,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
         sender_id: data.sender_id,
         community_id: data.community_id,
         receiver_id: data.receiver_id,
+        channel_id : data.channel_id,
         content: data.content,
         message_type: safeMessageType(data.message_type),
         file_url: data.file_url,

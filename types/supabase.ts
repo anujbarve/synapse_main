@@ -248,6 +248,7 @@ export type Database = {
       }
       messages: {
         Row: {
+          channel_id: number | null
           community_id: number | null
           content: string
           file_url: string | null
@@ -259,6 +260,7 @@ export type Database = {
           sent_at: string | null
         }
         Insert: {
+          channel_id?: number | null
           community_id?: number | null
           content: string
           file_url?: string | null
@@ -270,6 +272,7 @@ export type Database = {
           sent_at?: string | null
         }
         Update: {
+          channel_id?: number | null
           community_id?: number | null
           content?: string
           file_url?: string | null
@@ -281,6 +284,13 @@ export type Database = {
           sent_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "messages_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "messages_community_id_fkey"
             columns: ["community_id"]
