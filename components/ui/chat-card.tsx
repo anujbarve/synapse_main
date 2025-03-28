@@ -8,6 +8,7 @@ import {
   Send,
   Image as ImageIcon,
   Paperclip,
+  Search,
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,20 @@ import { SidebarTrigger } from "./sidebar";
 import { MessageType, useMessageStore } from "@/stores/messages_store";
 import { useUserStore } from "@/stores/user_store";
 import { useChannelStore } from "@/stores/channel_store";
+
+import { 
+  Popover, 
+  PopoverContent, 
+  PopoverTrigger 
+} from "@/components/ui/popover";
+import { 
+  useCommunityPresenceStore, 
+  useCommunityPresence 
+} from "@/stores/user_online_store";
+import { createClient } from '@/utils/supabase/client';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Users } from 'lucide-react';
+import React from "react";
 
 interface ChatCardProps {
   communityId?: number;
@@ -39,24 +54,42 @@ export function  ChatCard({
   // Access store methods and state
   const { 
     messages, 
-    fetchMessagesByCommunityAndChannel, 
-    fetchMessagesByReceiver, 
+    fetchMessages, 
     sendMessage,
-    loading
+    loading,
+    error
   } = useMessageStore();
 
   const { 
     channels
   } = useChannelStore();
 
-  // Fetch messages based on community, channel, or receiver
   useEffect(() => {
     if (communityId && channelId) {
-      fetchMessagesByCommunityAndChannel(communityId, channelId);
+      fetchMessages({
+        communityId, 
+        channelId
+      });
     } else if (receiverId) {
-      fetchMessagesByReceiver(receiverId);
+      fetchMessages({
+        receiverId
+      });
     }
-  }, [communityId, channelId, receiverId,fetchMessagesByCommunityAndChannel,fetchMessagesByReceiver]);
+  }, [communityId, channelId, receiverId,fetchMessages]);
+
+  const filteredMessages = React.useMemo(() => {
+    return messages.filter(message => {
+      if (communityId && channelId) {
+        return message.community_id === communityId && 
+               message.channel_id === channelId;
+      }
+      if (receiverId) {
+        return message.receiver_id === receiverId;
+      }
+      return true;
+    });
+  }, [messages, communityId, channelId, receiverId]);
+
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() && !selectedFile || !user) return;
@@ -77,13 +110,6 @@ export function  ChatCard({
         file_url: selectedFile ? URL.createObjectURL(selectedFile) : null
       };
 
-      // Add console logs to verify data
-      console.log('Sending message with data:', {
-        communityId,
-        channelId,
-        messageData
-      });
-
       await sendMessage(messageData);
 
       // Reset input and file
@@ -95,7 +121,6 @@ export function  ChatCard({
     }
   };
 
-
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -104,15 +129,14 @@ export function  ChatCard({
     }
   };
 
-
-  useEffect(() => {
-    console.log('ChatCard Props:', {
-      communityId,
-      channelId,
-      receiverId
-    });
-  }, [communityId, channelId, receiverId]);
-
+  // Render error if exists
+  if (error) {
+    return (
+      <div className="text-center text-red-500 p-4">
+        Error: {error}
+      </div>
+    );
+  }
 
   if (!user) return null; // Prevent rendering if no user
 
@@ -137,23 +161,28 @@ export function  ChatCard({
             </h3>
           </div>
         </div>
-        <button
-          type="button"
-          className="p-2 rounded-full hover:bg-muted"
-        >
-          <MoreHorizontal className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Add Online Members Popover if in a community context */}
+          {communityId && (
+            <OnlineMembersPopover communityId={communityId} />
+          )}
+          <button
+            type="button"
+            className="p-2 rounded-full hover:bg-muted"
+          >
+            <MoreHorizontal className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {loading ? (
           <div className="text-center text-muted-foreground">Loading messages...</div>
-        ) : messages.length === 0 ? (
+        ) : filteredMessages.length === 0 ? (
           <div className="text-center text-muted-foreground">No messages yet</div>
         ) : (
-          messages.map((message) => (
-            <div key={message.id} className="flex items-start gap-3">
+          filteredMessages.map((message,index) => (
+            <div key={`message-${message.id}-${message.sent_at}-${index}`}  className="flex items-start gap-3">
               <Image
                 src={message.sender.profile_picture || '/default-avatar.png'}
                 alt={message.sender.username}
@@ -261,5 +290,213 @@ export function  ChatCard({
         )}
       </div>
     </div>
+  );
+}
+
+interface CommunityMember {
+  user_id: string;
+  users: {
+    username: string;
+    profile_picture: string | null;
+  };
+}
+
+export function OnlineMembersPopover({ communityId }: { communityId: number }) {
+  const [members, setMembers] = useState<CommunityMember[]>([]);
+  const { onlineCount, totalMembers, onlineMembers } = useCommunityPresence(communityId);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Initialize presence
+  useEffect(() => {
+    setIsLoading(true);
+    useCommunityPresenceStore.getState().initializePresence(communityId);
+
+    return () => {
+      useCommunityPresenceStore.getState().cleanup(communityId);
+    };
+  }, [communityId]);
+
+  // Fetch community members
+  useEffect(() => {
+    async function fetchMembers() {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('community_members')
+          .select('user_id, users(username, profile_picture)')
+          .eq('community_id', communityId);
+
+        if (data) {
+          setMembers(data);
+          setIsLoading(false);
+        }
+
+        if (error) throw error;
+      } catch (error) {
+        console.error('Failed to fetch community members', error);
+        setIsLoading(false);
+      }
+    }
+
+    fetchMembers();
+  }, [communityId]);
+
+  // Filtered and sorted members
+  const filteredMembers = React.useMemo(() => {
+    return members
+      .filter(member => 
+        member.users.username.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort((a, b) => {
+        const aOnline = onlineMembers[a.user_id];
+        const bOnline = onlineMembers[b.user_id];
+        
+        if (aOnline && !bOnline) return -1;
+        if (!aOnline && bOnline) return 1;
+        
+        return a.users.username.localeCompare(b.users.username);
+      });
+  }, [members, onlineMembers, searchTerm]);
+
+  // Render loading skeleton
+  const renderLoadingSkeleton = () => (
+    <div className="space-y-2 p-2">
+      {[...Array(4)].map((_, index) => (
+        <div 
+          key={index} 
+          className="flex items-center space-x-4 p-2 rounded-lg bg-muted/20 animate-pulse"
+        >
+          <div className="w-10 h-10 bg-muted/30 rounded-full"></div>
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-3/4 bg-muted/30"></div>
+            <div className="h-3 w-1/2 bg-muted/30"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button 
+          className="flex items-center gap-2 p-2 rounded-full hover:bg-accent group relative"
+          aria-label="Online Members"
+        >
+          <Users className="w-5 h-5 group-hover:text-primary" />
+          <span className="text-sm font-medium">
+            {onlineCount} / {totalMembers}
+          </span>
+          {onlineCount > 0 && (
+            <span 
+              className="absolute -top-1 -right-1 bg-primary text-primary-foreground 
+              text-xs rounded-full w-4 h-4 flex items-center justify-center"
+            >
+              {onlineCount}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-96 p-0">
+        <div className="p-4 border-b">
+          <div className="flex items-center space-x-2">
+            <h4 className="text-sm font-semibold flex-1">
+              Community Members
+            </h4>
+            <span className="text-xs text-muted-foreground">
+              {onlineCount} Online
+            </span>
+          </div>
+          <div className="mt-2 relative">
+            <input 
+              type="text"
+              placeholder="Search members..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-3 py-2 border rounded-md text-sm 
+              bg-background 
+              focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          </div>
+        </div>
+        
+        <div className="max-h-80 overflow-y-auto">
+          {isLoading ? (
+            renderLoadingSkeleton()
+          ) : filteredMembers.length === 0 ? (
+            <div className="text-center py-4 text-muted-foreground text-sm">
+              No members found
+            </div>
+          ) : (
+            <div className="divide-y">
+              {filteredMembers.map(member => {
+                const isOnline = onlineMembers[member.user_id];
+                return (
+                  <div 
+                    key={member.user_id} 
+                    className={`
+                      flex items-center p-3 
+                      ${isOnline 
+                        ? 'bg-green-50/50 dark:bg-green-950/30' 
+                        : 'hover:bg-accent'}
+                      transition-colors group
+                      cursor-pointer
+                    `}
+                    onClick={() => {
+                      // Optional: Add action on member click
+                      // e.g., navigate to profile or open direct message
+                    }}
+                  >
+                    <div className="relative mr-4">
+                      <Avatar className={`
+                        w-10 h-10
+                        ring-2 
+                        ${isOnline 
+                          ? 'ring-green-500/50' 
+                          : 'ring-muted-foreground/20'}
+                      `}>
+                        <AvatarImage 
+                          src={member.users.profile_picture || undefined} 
+                          alt={member.users.username}
+                          className="object-cover"
+                        />
+                        <AvatarFallback className="bg-primary/10 text-primary">
+                          {member.users.username.slice(0,2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      {isOnline && (
+                        <span 
+                          className="absolute bottom-0 right-0 w-3 h-3 
+                          bg-green-500 border-2 border-background rounded-full 
+                          animate-pulse"
+                        ></span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate group-hover:text-primary">
+                        {member.users.username}
+                      </p>
+                      <p className={`
+                        text-xs truncate
+                        ${isOnline 
+                          ? 'text-green-600 dark:text-green-400' 
+                          : 'text-muted-foreground'}
+                      `}>
+                        {isOnline ? 'Online' : 'Offline'}
+                      </p>
+                    </div>
+                    <MoreHorizontal 
+                      className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" 
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

@@ -50,13 +50,16 @@ export const useCommunityPresenceStore = create<CommunityPresenceStore>((set, ge
         if (userError) throw userError;
         if (!user) throw new Error('No authenticated user');
 
+        // Create a Set of community member IDs for efficient lookup
+        const communityMemberIds = new Set(members?.map(m => m.user_id) || []);
+
         // Initialize community presence state
         set(state => ({
           communities: {
             ...state.communities,
             [communityId]: {
               onlineMembers: {},
-              totalMembers: members?.length || 0
+              totalMembers: communityMemberIds.size
             }
           }
         }));
@@ -75,10 +78,10 @@ export const useCommunityPresenceStore = create<CommunityPresenceStore>((set, ge
             const presenceState = channels[communityId].presenceState();
             log(`Presence sync for community ${communityId}`, presenceState);
 
-            // Get all online users from presence state
+            // Get online users that are community members
             const onlineMembers = Object.values(presenceState).reduce((acc, presences: any) => {
               presences.forEach((presence: any) => {
-                if (presence.userId) {
+                if (presence.userId && communityMemberIds.has(presence.userId)) {
                   acc[presence.userId] = {
                     userId: presence.userId,
                     lastSeen: presence.timestamp
@@ -103,7 +106,7 @@ export const useCommunityPresenceStore = create<CommunityPresenceStore>((set, ge
             set(state => {
               const currentOnlineMembers = { ...state.communities[communityId]?.onlineMembers };
               newPresences.forEach((presence: any) => {
-                if (presence.userId) {
+                if (presence.userId && communityMemberIds.has(presence.userId)) {
                   currentOnlineMembers[presence.userId] = {
                     userId: presence.userId,
                     lastSeen: presence.timestamp
@@ -144,15 +147,17 @@ export const useCommunityPresenceStore = create<CommunityPresenceStore>((set, ge
             });
           });
 
-        // Subscribe and track presence
-        await channels[communityId].subscribe(async (status) => {
-          if (status === 'SUBSCRIBED') {
-            await channels[communityId].track({
-              userId: user.id,
-              timestamp: new Date().toISOString()
-            });
-          }
-        });
+        // Subscribe and track presence only if the user is a community member
+        if (communityMemberIds.has(user.id)) {
+          await channels[communityId].subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+              await channels[communityId].track({
+                userId: user.id,
+                timestamp: new Date().toISOString()
+              });
+            }
+          });
+        }
 
       } catch (error) {
         log(`Error initializing presence for community ${communityId}`, error);
@@ -170,7 +175,6 @@ export const useCommunityPresenceStore = create<CommunityPresenceStore>((set, ge
   };
 });
 
-// Hooks remain the same
 export const useCommunityPresence = (communityId: number) => {
   const community = useCommunityPresenceStore(state => state.communities[communityId]);
   
