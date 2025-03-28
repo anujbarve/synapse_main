@@ -61,7 +61,10 @@ export function Post({
 
   // Get the current post's vote status
   const currentPost = posts.find((p) => p.id === id);
+
   const userVote = currentPost?.userVote;
+  const displayUpvotes = currentPost?.upvotes ?? upvotes;
+  const displayDownvotes = currentPost?.downvotes ?? downvotes;
 
   const handleVote = async (voteType: "upvote" | "downvote") => {
     try {
@@ -175,7 +178,7 @@ export function Post({
             }
           >
             <ArrowUpIcon className={isVoting ? "animate-bounce" : ""} />
-            {upvotes}
+            {displayUpvotes}
           </Button>
           <Button
             variant={userVote === "downvote" ? "default" : "outline"}
@@ -186,7 +189,7 @@ export function Post({
             }
           >
             <ArrowDownIcon className={isVoting ? "animate-bounce" : ""} />
-            {downvotes}
+            {displayDownvotes}
           </Button>
         </div>
 
