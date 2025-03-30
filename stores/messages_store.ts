@@ -286,11 +286,8 @@ export const useMessageStore = create<MessageStore>((set, get) => {
     },
 
     // Initialize Realtime Updates
-    initializeRealtimeUpdates: ({
-      communityId,
-      channelId,
-      receiverId,
-    } = {}) => {
+    // Initialize Realtime Updates
+    initializeRealtimeUpdates: () => {
       // Unsubscribe from previous subscription
       if (get().messageSubscription) {
         get().messageSubscription?.unsubscribe();
@@ -305,10 +302,10 @@ export const useMessageStore = create<MessageStore>((set, get) => {
             event: "*",
             schema: "public",
             table: "messages",
-            // Add more specific filtering
-            filter: buildRealtimeFilter(communityId, channelId, receiverId),
           },
           async (payload) => {
+            console.log("Realtime payload:", payload);
+
             switch (payload.eventType) {
               case "INSERT":
                 await handleInsert(payload.new);
@@ -322,45 +319,30 @@ export const useMessageStore = create<MessageStore>((set, get) => {
             }
           }
         )
-        .subscribe();
+        .subscribe(async (status) => {
+          console.log("Realtime subscription status:", status);
+        });
 
       // Update store with new subscription
       set({ messageSubscription: subscription });
 
-      function buildRealtimeFilter(
-        communityId?: number,
-        channelId?: number,
-        receiverId?: string
-      ): string | undefined {
-        const filters: string[] = [];
-
-        if (communityId) filters.push(`community_id=eq.${communityId}`);
-        if (channelId) filters.push(`channel_id=eq.${channelId}`);
-        if (receiverId) filters.push(`receiver_id=eq.${receiverId}`);
-
-        return filters.length > 0 ? filters.join(" and ") : undefined;
-      }
-
       // Handlers for different event types
       const handleInsert = async (newMessage: any) => {
         try {
-          // Verify the message matches current context
-          if (!isMessageRelevant(newMessage)) return;
-
           const { data } = await supabase
             .from("messages")
             .select(
               `
-              *,
-              sender:users!messages_sender_id_fkey (
-                username,
-                profile_picture
-              ),
-              community:community!messages_community_id_fkey (
-                name,
-                banner_picture
-              )
-            `
+          *,
+          sender:users!messages_sender_id_fkey (
+            username,
+            profile_picture
+          ),
+          community:community!messages_community_id_fkey (
+            name,
+            banner_picture
+          )
+        `
             )
             .eq("id", newMessage.id)
             .single();
@@ -390,11 +372,6 @@ export const useMessageStore = create<MessageStore>((set, get) => {
             };
 
             set((state) => {
-              // Additional check to ensure message is relevant
-              if (!isMessageRelevantToCurrentState(state, formattedMessage)) {
-                return {};
-              }
-
               // Prevent duplicate messages
               const existingMessage = state.messages.find(
                 (m) => m.id === formattedMessage.id
@@ -414,34 +391,7 @@ export const useMessageStore = create<MessageStore>((set, get) => {
         }
       };
 
-      function isMessageRelevant(message: any): boolean {
-        const currentState = get();
-        
-        // Check if message matches current context
-        if (communityId && message.community_id !== communityId) return false;
-        if (channelId && message.channel_id !== channelId) return false;
-        if (receiverId && message.receiver_id !== receiverId) return false;
-    
-        return true;
-      }
-
-      function isMessageRelevantToCurrentState(
-        state: MessageStore,
-        message: MessageWithSender
-      ): boolean {
-        // Additional context-specific checks
-        if (communityId && message.community_id !== communityId) return false;
-        if (channelId && message.channel_id !== channelId) return false;
-        if (receiverId && message.receiver_id !== receiverId) return false;
-
-        return true;
-      }
-
-      // Other handlers remain the same
       const handleUpdate = (updatedMessage: any) => {
-        // Only update if message is relevant
-        if (!isMessageRelevant(updatedMessage)) return;
-
         set((state) => ({
           messages: state.messages.map((message) =>
             message.id === updatedMessage.id

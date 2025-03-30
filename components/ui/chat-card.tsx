@@ -65,6 +65,10 @@ export function  ChatCard({
   } = useChannelStore();
 
   useEffect(() => {
+    // Initialize realtime updates
+    const cleanup = useMessageStore.getState().initializeRealtimeUpdates();
+  
+    // Fetch messages
     if (communityId && channelId) {
       fetchMessages({
         communityId, 
@@ -75,10 +79,16 @@ export function  ChatCard({
         receiverId
       });
     }
-  }, [communityId, channelId, receiverId,fetchMessages]);
+  
+    // Cleanup subscription when component unmounts
+    return () => {
+      cleanup();
+    };
+  }, [communityId, channelId, receiverId, fetchMessages]);
 
   const filteredMessages = React.useMemo(() => {
     return messages.filter(message => {
+      // Filter based on current context
       if (communityId && channelId) {
         return message.community_id === communityId && 
                message.channel_id === channelId;
