@@ -61,7 +61,8 @@ export function  ChatCard({
   } = useMessageStore();
 
   const { 
-    channels
+    channels,
+    fetchChannels
   } = useChannelStore();
 
   useEffect(() => {
@@ -70,6 +71,7 @@ export function  ChatCard({
   
     // Fetch messages
     if (communityId && channelId) {
+      fetchChannels(communityId.toString());
       fetchMessages({
         communityId, 
         channelId
@@ -84,7 +86,7 @@ export function  ChatCard({
     return () => {
       cleanup();
     };
-  }, [communityId, channelId, receiverId, fetchMessages]);
+  }, [communityId, channelId, receiverId, fetchMessages,fetchChannels]);
 
   const filteredMessages = React.useMemo(() => {
     return messages.filter(message => {
@@ -166,7 +168,7 @@ export function  ChatCard({
           <div>
             <h3 className="font-medium">
               {communityId 
-                ? `Community: ${channels.find(c => c.id === channelId)?.name || 'Channel'}` 
+                ? `Community Channel : ${channels.find(c => c.id === channelId)?.name}` 
                 : 'Direct Message'}
             </h3>
           </div>
@@ -398,14 +400,6 @@ export function OnlineMembersPopover({ communityId }: { communityId: number }) {
           <span className="text-sm font-medium">
             {onlineCount} / {totalMembers}
           </span>
-          {onlineCount > 0 && (
-            <span 
-              className="absolute -top-1 -right-1 bg-primary text-primary-foreground 
-              text-xs rounded-full w-4 h-4 flex items-center justify-center"
-            >
-              {onlineCount}
-            </span>
-          )}
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-96 p-0">
