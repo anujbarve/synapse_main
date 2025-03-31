@@ -1,6 +1,7 @@
 // postStore.ts
 import { create } from "zustand";
 import { createClient } from "@/utils/supabase/client";
+import { useReputationStore } from "./reputation_store";
 
 export type PostType = "Text" | "Link" | "Image" | "Video";
 
@@ -547,8 +548,9 @@ export const usePostStore = create<PostStore>((set, get) => ({
 
   votePost: async (postId: number, voteType: "upvote" | "downvote") => {
     const supabase = createClient();
+    const { createReputationEntry } = useReputationStore.getState();
     set({ loading: true, error: null });
-
+  
     try {
       // Get the current user's ID
       const {
@@ -557,26 +559,74 @@ export const usePostStore = create<PostStore>((set, get) => ({
       } = await supabase.auth.getUser();
       if (userError) throw userError;
       if (!user) throw new Error("User not authenticated");
-
-      // First, remove any existing vote
+  
+      // Fetch the post's author and details
+      const { data: post, error: postError } = await supabase
+        .from("posts")
+        .select("user_id, title")
+        .eq("id", postId)
+        .single();
+      if (postError) throw postError;
+      if (!post) throw new Error("Post not found");
+  
+      const postAuthorId = post.user_id;
+  
+      // Remove any existing vote
+      const { data: existingVote } = await supabase
+        .from("post_votes")
+        .select("vote_type")
+        .eq("post_id", postId)
+        .eq("user_id", user.id)
+        .single();
+  
       await supabase
         .from("post_votes")
         .delete()
         .eq("post_id", postId)
         .eq("user_id", user.id);
-
-      // Then insert the new vote
-      const { error } = await supabase.from("post_votes").insert([
+  
+      // Determine reputation change
+      let reputationChange = 0;
+      let reputationReason = "";
+  
+      if (!existingVote) {
+        // First time voting
+        reputationChange = voteType === "upvote" ? 1 : -1;
+        reputationReason = voteType === "upvote" 
+          ? "Received an upvote on post" 
+          : "Received a downvote on post";
+      } else {
+        // Changing vote type
+        if (existingVote.vote_type === "upvote" && voteType === "downvote") {
+          reputationChange = -2; // Undo +1 and apply -1
+          reputationReason = "Vote changed from upvote to downvote";
+        } else if (existingVote.vote_type === "downvote" && voteType === "upvote") {
+          reputationChange = 2; // Undo -1 and apply +1
+          reputationReason = "Vote changed from downvote to upvote";
+        }
+      }
+  
+      // Insert new vote
+      const { error: voteError } = await supabase.from("post_votes").insert([
         {
           post_id: postId,
           user_id: user.id,
           vote_type: voteType,
         },
       ]);
-
-      if (error) throw error;
-
-      // Update local state
+      if (voteError) throw voteError;
+  
+      // Add reputation change if applicable
+      if (reputationChange !== 0) {
+        await createReputationEntry({
+          user_id: postAuthorId,
+          changed_by: user.id,
+          change_value: reputationChange,
+          reason: `${reputationReason}: "${post.title.substring(0, 50)}"`,
+        });
+      }
+  
+      // Update local state (same as before)
       set((state) => ({
         posts: state.posts.map((post) => {
           if (post.id === postId) {
@@ -625,11 +675,13 @@ export const usePostStore = create<PostStore>((set, get) => ({
       set({ error: (error as Error).message, loading: false });
     }
   },
+  
 
   removeVote: async (postId: number) => {
     const supabase = createClient();
+    const { createReputationEntry } = useReputationStore.getState();
     set({ loading: true, error: null });
-
+  
     try {
       // Get the current user's ID
       const {
@@ -638,15 +690,46 @@ export const usePostStore = create<PostStore>((set, get) => ({
       } = await supabase.auth.getUser();
       if (userError) throw userError;
       if (!user) throw new Error("User not authenticated");
-
+  
+      // Fetch the post's details to get the author
+      const { data: post, error: postError } = await supabase
+        .from("posts")
+        .select("user_id, title")
+        .eq("id", postId)
+        .single();
+      if (postError) throw postError;
+      if (!post) throw new Error("Post not found");
+  
+      // Find the existing vote
+      const { data: existingVote, error: voteError } = await supabase
+        .from("post_votes")
+        .select("vote_type")
+        .eq("post_id", postId)
+        .eq("user_id", user.id)
+        .single();
+      if (voteError) throw voteError;
+  
+      // Remove the vote
       const { error } = await supabase
         .from("post_votes")
         .delete()
         .eq("post_id", postId)
         .eq("user_id", user.id);
-
+  
       if (error) throw error;
-
+  
+      // Adjust reputation if there was a previous vote
+      if (existingVote) {
+        const reputationChange = existingVote.vote_type === "upvote" ? -1 : 1;
+        await createReputationEntry({
+          user_id: post.user_id,
+          changed_by: user.id,
+          change_value: reputationChange,
+          reason: `Vote removed from post: "${post.title.substring(0, 50)}"`,
+        });
+      }
+  
+      // Update local state (same as before)
       set((state) => ({
         posts: state.posts.map((post) => {
           if (post.id === postId) {
@@ -684,4 +767,5 @@ export const usePostStore = create<PostStore>((set, get) => ({
       set({ error: (error as Error).message, loading: false });
     }
   },
+  
 }));

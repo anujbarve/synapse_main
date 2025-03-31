@@ -40,8 +40,8 @@ export default function MemberList() {
 
     const handlePromote = async (memberId: string) => {
         try {
-            if (community && selectedRole) {
-                await promoteMember(community.id.toString(), memberId, selectedRole);
+            if (community && selectedRole && currentUser) {
+                await promoteMember(community.id.toString(), memberId, selectedRole,currentUser.id);
             }
         } catch (err: unknown) {
             if (err instanceof Error) {
@@ -55,8 +55,8 @@ export default function MemberList() {
 
     const handleMute = async (memberId: string) => {
         try {
-            if (community) {
-                await muteMember(community.id.toString(), memberId, details);
+            if (community && currentUser) {
+                await muteMember(community.id.toString(), memberId, details,currentUser.id);
             }
         }catch (err: unknown) {
             if (err instanceof Error) {
@@ -70,8 +70,8 @@ export default function MemberList() {
 
     const handleBan = async (memberId: string) => {
         try {
-            if (community) {
-                await banMember(community.id.toString(), memberId, details);
+            if (community && currentUser) {
+                await banMember(community.id.toString(), memberId, details, currentUser.id);
             }
         } catch (err: unknown) {
             if (err instanceof Error) {
