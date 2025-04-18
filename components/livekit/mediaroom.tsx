@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { LiveKitRoom } from "@livekit/components-react";
 import { Loader2 } from "lucide-react";
 import { useUserStore } from "@/stores/user_store";
@@ -41,6 +41,13 @@ export const MediaRoom = ({ chatId, video, audio }: MediaRoomProps) => {
     })();
   }, [user?.username, user?.email, chatId]);
 
+  // Define onConnected callback without parameters
+  const handleConnected = useCallback(() => {
+    console.log("Connected to LiveKit room");
+    // We'll handle camera and mic state through the video and audio props
+    // which LiveKitRoom will use automatically
+  }, []);
+
   // Show loading state while fetching token
   if (token === "") {
     return (
@@ -54,16 +61,19 @@ export const MediaRoom = ({ chatId, video, audio }: MediaRoomProps) => {
   return (
     <div className="rounded-lg min-h-[30rem] overflow-hidden border">
       <LiveKitRoom
-        serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL || ""}
+        data-lk-theme="default"
+        serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL}
         token={token}
         connect={true}
         video={video}
         audio={audio}
-        data-lk-theme="default"
+        onConnected={handleConnected}
       >
         {currentCommunity && (
           <CommunityPresenceProvider communityId={currentCommunity} />
         )}
+        
+        {/* Use our custom VideoRoom component instead of VideoConference */}
         <VideoRoom roomName={chatId} />
       </LiveKitRoom>
     </div>
