@@ -5,8 +5,8 @@ import { LiveKitRoom, VideoConference } from "@livekit/components-react";
 import "@livekit/components-styles";
 import { Loader2 } from "lucide-react";
 import { useUserStore } from "@/stores/user_store";
-import { CommunityPresenceProvider } from "../community-presence";
-import { useSingleCommunityStore } from "@/stores/single_community_store";
+import { VideoRoom } from "./custom/video-room";
+import { Button } from "../ui/button";
 
 interface MediaRoomProps {
   chatId: string;
@@ -17,9 +17,8 @@ interface MediaRoomProps {
 export const MediaRoom = ({ chatId, video, audio }: MediaRoomProps) => {
   const { user } = useUserStore();
   const [token, setToken] = useState<string>("");
-  const {currentCommunity} = useSingleCommunityStore();
-
-  // Fetch user details when authenticated
+  const [isConnecting, setIsConnecting] = useState(true);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Fetch token when user and chatId are available
   useEffect(() => {
@@ -54,17 +53,23 @@ export const MediaRoom = ({ chatId, video, audio }: MediaRoomProps) => {
   }
 
   return (
-    <LiveKitRoom
-      className="rounded-lg min-h-[30rem]"
-      data-lk-theme="default"
-      serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL}
-      token={token}
-      connect={true} // Automatically connect to the room
-      video={video} // Enable video if true
-      audio={audio} // Enable audio if true
-    >
-      <CommunityPresenceProvider communityId={currentCommunity} />
-      <VideoConference />
-    </LiveKitRoom>
+    <div className="rounded-lg overflow-hidden border">
+      <LiveKitRoom
+        serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL}
+        token={token}
+        connect={true}
+        video={video}
+        audio={audio}
+        onConnected={handleConnected}
+        onError={handleError}
+      >
+        
+        <VideoRoom 
+          roomName={chatId} 
+          initialVideo={video} 
+          initialAudio={audio} 
+        />
+      </LiveKitRoom>
+    </div>
   );
 };

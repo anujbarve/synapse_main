@@ -33,7 +33,7 @@ export default async function Page({
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbPage>Account : {slug}</BreadcrumbPage>
+                <BreadcrumbPage>Video Conference</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
@@ -43,7 +43,7 @@ export default async function Page({
 
       <div className="grid grid-cols-1 h-full w-full p-4 pt-0">
         {/* MediaRoom component - displays the video/audio room */}
-        <div className="col-span-1 max-h-[36rem] w-full rounded-xl">
+        <div className="col-span-1 w-full rounded-xl">
           <MediaRoom chatId={slug} video={false} audio={false} />
         </div>
       </div>
