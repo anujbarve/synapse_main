@@ -13,9 +13,10 @@ export function VideoGrid({ className }: VideoGridProps) {
   return (
     <div className={cn(
       "grid gap-4",
-      participants.length <= 1 && "grid-cols-1",
+      participants.length === 1 && "grid-cols-1",
       participants.length === 2 && "grid-cols-2",
-      participants.length >= 3 && "grid-cols-3",
+      participants.length >= 3 && participants.length <= 4 && "grid-cols-2",
+      participants.length >= 5 && participants.length <= 6 && "grid-cols-3",
       participants.length >= 7 && "grid-cols-4",
       className
     )}>

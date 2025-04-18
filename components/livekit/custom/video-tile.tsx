@@ -19,30 +19,78 @@ export function VideoTile({ participant, className, showMuteIndicator = true }: 
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [microphoneMuted, setMicrophoneMuted] = useState(false);
   
-  // Set up video
+  // Set up video with better track detection and attachment
   useEffect(() => {
-    const videoPublication = participant.getTrackPublication(Track.Source.Camera);
-    const videoTrack = videoPublication?.track;
+    const setupVideo = async () => {
+      // Get the camera track publication
+      const videoPublication = participant.getTrackPublication(Track.Source.Camera);
+      const videoTrack = videoPublication?.track;
+      
+      // If we have a track and a video element, attach them
+      if (videoTrack && videoRef.current) {
+        try {
+          // Force track attachment
+          await videoTrack.attach(videoRef.current);
+          
+          // Make sure the video plays
+          if (videoRef.current.paused) {
+            await videoRef.current.play().catch(error => {
+              console.warn('Auto-play failed:', error);
+            });
+          }
+        } catch (error) {
+          console.error('Error attaching video track:', error);
+        }
+      }
+    };
     
-    if (videoTrack && videoRef.current) {
-      videoTrack.attach(videoRef.current);
-      return () => {
-        videoTrack.detach();
-      };
-    }
+    setupVideo();
+    
+    // Clean up on unmount
+    return () => {
+      const videoPublication = participant.getTrackPublication(Track.Source.Camera);
+      const videoTrack = videoPublication?.track;
+      if (videoTrack && videoRef.current) {
+        videoTrack.detach(videoRef.current);
+      }
+    };
   }, [participant]);
   
-  // Set up audio
+  // Set up audio with better track detection and attachment
   useEffect(() => {
-    const audioPublication = participant.getTrackPublication(Track.Source.Microphone);
-    const audioTrack = audioPublication?.track;
+    const setupAudio = async () => {
+      // Get the microphone track publication
+      const audioPublication = participant.getTrackPublication(Track.Source.Microphone);
+      const audioTrack = audioPublication?.track;
+      
+      // If we have a track and an audio element, attach them
+      if (audioTrack && audioRef.current) {
+        try {
+          // Force track attachment
+          await audioTrack.attach(audioRef.current);
+          
+          // Make sure the audio plays
+          if (audioRef.current.paused) {
+            await audioRef.current.play().catch(error => {
+              console.warn('Auto-play failed:', error);
+            });
+          }
+        } catch (error) {
+          console.error('Error attaching audio track:', error);
+        }
+      }
+    };
     
-    if (audioTrack && audioRef.current) {
-      audioTrack.attach(audioRef.current);
-      return () => {
-        audioTrack.detach();
-      };
-    }
+    setupAudio();
+    
+    // Clean up on unmount
+    return () => {
+      const audioPublication = participant.getTrackPublication(Track.Source.Microphone);
+      const audioTrack = audioPublication?.track;
+      if (audioTrack && audioRef.current) {
+        audioTrack.detach(audioRef.current);
+      }
+    };
   }, [participant]);
   
   // Set up speaking detection and mute state

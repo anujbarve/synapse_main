@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParticipants, useRoomContext } from "@livekit/components-react";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
+import { Track } from "livekit-client";
 import { 
   Mic, 
   MicOff, 
@@ -22,7 +23,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
-import { Track } from "livekit-client";
 
 interface MediaControlsProps {
   onToggleChat: () => void;
@@ -45,9 +45,13 @@ export function MediaControls({
   useEffect(() => {
     if (room.localParticipant) {
       const camEnabled = room.localParticipant.isCameraEnabled;
-      const micEnabled = room.localParticipant.isMicrophoneEnabled;
+      const micEnabled = !room.localParticipant.isMicrophoneEnabled;
       setIsCameraEnabled(camEnabled);
       setIsMicEnabled(micEnabled);
+      
+      // Check if screen share is active
+      const screenSharePub = room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
+      setIsScreenShareEnabled(!!screenSharePub && !screenSharePub.isMuted);
     }
   }, [room.localParticipant]);
   
@@ -57,7 +61,7 @@ export function MediaControls({
     
     const handleTrackPublished = () => {
       setIsCameraEnabled(room.localParticipant.isCameraEnabled);
-      setIsMicEnabled(room.localParticipant.isMicrophoneEnabled);
+      setIsMicEnabled(!room.localParticipant.isMicrophoneEnabled);
       
       // Check if screen share is active
       const screenSharePub = room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
@@ -79,18 +83,60 @@ export function MediaControls({
   
   const toggleCamera = async () => {
     try {
-      await room.localParticipant.setCameraEnabled(!isCameraEnabled);
-      setIsCameraEnabled(!isCameraEnabled);
+      // Get current state
+      const currentState = isCameraEnabled;
+      
+      // Update UI immediately for responsiveness
+      setIsCameraEnabled(!currentState);
+      
+      // Actually toggle the camera
+      await room.localParticipant.setCameraEnabled(!currentState);
+      
+      // Force a re-publish if turning on
+      if (!currentState) {
+        // Small delay to ensure the track is created
+        setTimeout(async () => {
+          const cameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera);
+          if (cameraTrack && cameraTrack.track) {
+            // Force a re-publish by muting and unmuting
+            await cameraTrack.mute();
+            await cameraTrack.unmute();
+          }
+        }, 500);
+      }
     } catch (e) {
+      // Revert UI state if there was an error
+      setIsCameraEnabled(isCameraEnabled);
       console.error("Error toggling camera:", e);
     }
   };
   
   const toggleMic = async () => {
     try {
-      await room.localParticipant.setMicrophoneEnabled(!isMicEnabled);
-      setIsMicEnabled(!isMicEnabled);
+      // Get current state
+      const currentState = isMicEnabled;
+      
+      // Update UI immediately for responsiveness
+      setIsMicEnabled(!currentState);
+      
+      // Actually toggle the microphone
+      await room.localParticipant.setMicrophoneEnabled(!currentState);
+      
+      // Force a re-publish if turning on
+      if (!currentState) {
+        // Small delay to ensure the track is created
+        setTimeout(async () => {
+          const micTrack = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+          if (micTrack && micTrack.track) {
+            // Force a re-publish by muting and unmuting
+            await micTrack.mute();
+            await micTrack.unmute();
+          }
+        }, 500);
+      }
     } catch (e) {
+      // Revert UI state if there was an error
+      setIsMicEnabled(isMicEnabled);
       console.error("Error toggling microphone:", e);
     }
   };

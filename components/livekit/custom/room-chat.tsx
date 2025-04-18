@@ -20,8 +20,9 @@ export function RoomChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const room = useRoomContext();
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // components/custom/room-chat.tsx (continued)
   useEffect(() => {
     // Fix the type signature to match what LiveKit expects
     const handleDataReceived = (
@@ -59,9 +60,7 @@ export function RoomChat() {
   
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
   
   const sendMessage = () => {
@@ -100,7 +99,7 @@ export function RoomChat() {
       </CardHeader>
       <CardContent className="flex-1 p-0 overflow-hidden">
         <ScrollArea className="h-full px-4">
-          <div className="space-y-4 py-4" ref={scrollAreaRef}>
+          <div className="space-y-4 py-4">
             {messages.length === 0 ? (
               <p className="text-center text-muted-foreground text-sm py-8">
                 No messages yet. Start the conversation!
@@ -123,6 +122,7 @@ export function RoomChat() {
                 </div>
               ))
             )}
+            <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
       </CardContent>

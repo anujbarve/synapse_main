@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Mic, MicOff, Video, VideoOff, ScreenShare } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Track } from "livekit-client";
+import { Badge } from "@/components/ui/badge";
 
 export function ParticipantsList() {
   const participants = useParticipants();
@@ -36,7 +37,10 @@ export function ParticipantsList() {
                   </span>
                   <div className="flex gap-1">
                     {isScreenSharing && (
-                      <ScreenShare className="h-4 w-4 text-blue-500" />
+                      <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">
+                        <ScreenShare className="h-3 w-3 mr-1" />
+                        Sharing
+                      </Badge>
                     )}
                     {isMicOn ? 
                       <Mic className="h-4 w-4" /> : 

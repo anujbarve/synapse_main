@@ -1,13 +1,18 @@
 // components/custom/room-settings.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRoomContext } from "@livekit/components-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 
-export function RoomSettings() {
+interface RoomSettingsProps {
+  isOpen?: boolean;
+}
+
+export function RoomSettings({ isOpen = true }: RoomSettingsProps) {
   const room = useRoomContext();
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
@@ -16,6 +21,8 @@ export function RoomSettings() {
   const [selectedAudioDevice, setSelectedAudioDevice] = useState<string>("");
   const [selectedSpeakerDevice, setSelectedSpeakerDevice] = useState<string>("");
   const [mirrorVideo, setMirrorVideo] = useState(true);
+  const [previewTrack, setPreviewTrack] = useState<MediaStreamTrack | null>(null);
+  const videoPreviewRef = useRef<HTMLVideoElement>(null);
   
   // Load available devices
   useEffect(() => {
@@ -60,6 +67,61 @@ export function RoomSettings() {
     };
   }, []);
   
+  // Create and attach preview
+  useEffect(() => {
+    let track: MediaStreamTrack | null = null;
+    
+    async function startVideoPreview() {
+      if (selectedVideoDevice && isOpen) {
+        try {
+          // Stop any existing preview track
+          if (previewTrack) {
+            previewTrack.stop();
+            setPreviewTrack(null);
+          }
+          
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: selectedVideoDevice }
+          });
+          
+          track = stream.getVideoTracks()[0];
+          setPreviewTrack(track);
+          
+          if (videoPreviewRef.current && track) {
+            videoPreviewRef.current.srcObject = new MediaStream([track]);
+          }
+        } catch (e) {
+          console.error("Error starting video preview:", e);
+        }
+      }
+    }
+    
+    startVideoPreview();
+    
+    // Cleanup function
+    return () => {
+      if (track) {
+        track.stop();
+        setPreviewTrack(null);
+      }
+    };
+  }, [selectedVideoDevice, isOpen, previewTrack]);
+  
+  // Cleanup when component unmounts or when isOpen changes
+  useEffect(() => {
+    if (!isOpen && previewTrack) {
+      previewTrack.stop();
+      setPreviewTrack(null);
+    }
+    
+    return () => {
+      if (previewTrack) {
+        previewTrack.stop();
+        setPreviewTrack(null);
+      }
+    };
+  }, [isOpen, previewTrack]);
+  
   const applySettings = async () => {
     try {
       if (selectedVideoDevice) {
@@ -73,6 +135,23 @@ export function RoomSettings() {
       if (selectedSpeakerDevice) {
         await room.switchActiveDevice('audiooutput', selectedSpeakerDevice);
       }
+      
+      // Force republish tracks after device switch
+      setTimeout(async () => {
+        const localParticipant = room.localParticipant;
+        
+        // Force camera republish if enabled
+        if (localParticipant.isCameraEnabled) {
+          await localParticipant.setCameraEnabled(false);
+          await localParticipant.setCameraEnabled(true);
+        }
+        
+        // Force microphone republish if enabled
+        if (!localParticipant.isMicrophoneEnabled) {
+          await localParticipant.setMicrophoneEnabled(false);
+          await localParticipant.setMicrophoneEnabled(true);
+        }
+      }, 500);
     } catch (e) {
       console.error("Error applying settings:", e);
     }
@@ -83,7 +162,7 @@ export function RoomSettings() {
       <CardHeader className="py-3">
         <CardTitle className="text-lg">Settings</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 overflow-auto">
         <div className="space-y-2">
           <Label htmlFor="camera">Camera</Label>
           <Select 
@@ -101,6 +180,20 @@ export function RoomSettings() {
               ))}
             </SelectContent>
           </Select>
+          
+          {/* Camera preview */}
+          <div className="mt-2 bg-muted rounded-md aspect-video overflow-hidden">
+            <video 
+              ref={videoPreviewRef} 
+              autoPlay 
+              playsInline 
+              muted 
+              className={cn(
+                "w-full h-full object-cover",
+                mirrorVideo && "scale-x-[-1]"
+              )} 
+            />
+          </div>
         </div>
         
         <div className="space-y-2">

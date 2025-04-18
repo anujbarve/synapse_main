@@ -1,3 +1,4 @@
+// components/media-room.tsx
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -7,6 +8,7 @@ import { useUserStore } from "@/stores/user_store";
 import { CommunityPresenceProvider } from "../community-presence";
 import { useSingleCommunityStore } from "@/stores/single_community_store";
 import { VideoRoom } from "./custom/video-room";
+import { Room, Track, VideoPresets } from "livekit-client";
 
 interface MediaRoomProps {
   chatId: string;
@@ -18,6 +20,7 @@ export const MediaRoom = ({ chatId, video, audio }: MediaRoomProps) => {
   const { user } = useUserStore();
   const [token, setToken] = useState<string>("");
   const { currentCommunity } = useSingleCommunityStore();
+  const [roomInstance, setRoomInstance] = useState<Room | null>(null);
 
   // Fetch token when user and chatId are available
   useEffect(() => {
@@ -41,12 +44,60 @@ export const MediaRoom = ({ chatId, video, audio }: MediaRoomProps) => {
     })();
   }, [user?.username, user?.email, chatId]);
 
-  // Define onConnected callback without parameters
+  // Define onConnected callback without parameters to match the expected type
   const handleConnected = useCallback(() => {
     console.log("Connected to LiveKit room");
-    // We'll handle camera and mic state through the video and audio props
-    // which LiveKitRoom will use automatically
+    
+    // We can't access the room directly from the callback
+    // Instead, we'll use the useRoomContext hook in the VideoRoom component
   }, []);
+
+  // Set up a separate effect to handle initial device state
+  useEffect(() => {
+    if (!roomInstance) return;
+    
+    const setupInitialState = async () => {
+      try {
+        if (roomInstance.localParticipant) {
+          // Set camera state
+          if (video !== roomInstance.localParticipant.isCameraEnabled) {
+            await roomInstance.localParticipant.setCameraEnabled(video);
+          }
+          
+          // Set microphone state
+          if (audio !== !roomInstance.localParticipant.isMicrophoneEnabled) {
+            await roomInstance.localParticipant.setMicrophoneEnabled(audio);
+          }
+          
+          // Force a re-publish of tracks to ensure they're visible
+          if (video) {
+            const cameraTrack = roomInstance.localParticipant.getTrackPublication(Track.Source.Camera);
+            if (cameraTrack && cameraTrack.track) {
+              await cameraTrack.mute();
+              await cameraTrack.unmute();
+            }
+          }
+          
+          if (audio) {
+            const micTrack = roomInstance.localParticipant.getTrackPublication(Track.Source.Microphone);
+            if (micTrack && micTrack.track) {
+              await micTrack.mute();
+              await micTrack.unmute();
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error setting initial device state:", e);
+      }
+    };
+    
+    // Add a slight delay to ensure room is fully initialized
+    const timer = setTimeout(setupInitialState, 1000);
+    
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [roomInstance, video, audio]);
 
   // Show loading state while fetching token
   if (token === "") {
@@ -68,12 +119,26 @@ export const MediaRoom = ({ chatId, video, audio }: MediaRoomProps) => {
         video={video}
         audio={audio}
         onConnected={handleConnected}
+        // Add these options to improve device handling
+        options={{
+          publishDefaults: {
+            simulcast: true,
+            // Use predefined VideoPresets instead of custom layers
+            videoSimulcastLayers: [
+              VideoPresets.h90,
+              VideoPresets.h180,
+              VideoPresets.h360
+            ],
+          },
+          adaptiveStream: true,
+          dynacast: true,
+        }}
       >
         {currentCommunity && (
           <CommunityPresenceProvider communityId={currentCommunity} />
         )}
         
-        {/* Use our custom VideoRoom component instead of VideoConference */}
+        {/* Pass roomInstance to VideoRoom to handle initial setup */}
         <VideoRoom roomName={chatId} />
       </LiveKitRoom>
     </div>

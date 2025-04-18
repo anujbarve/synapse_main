@@ -1,13 +1,14 @@
 // components/custom/video-room.tsx
 import { useState, useEffect } from "react";
 import { useParticipants, useRoomContext } from "@livekit/components-react";
-import { Track } from "livekit-client";
+import { Track, RemoteParticipant } from "livekit-client";
 import { VideoGrid } from "./video-grid";
 import { MediaControls } from "./media-controls";
 import { RoomChat } from "./room-chat";
 import { ParticipantsList } from "./participants-list";
 import { RoomSettings } from "./room-settings";
 import { ScreenShareTile } from "./screen-share-tile";
+import { VideoTile } from "./video-tile"; // Make sure to import VideoTile
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,48 @@ export function VideoRoom({ roomName }: VideoRoomProps) {
   const participants = useParticipants();
   const [activePanel, setActivePanel] = useState<string | null>(null);
   const [screenShareParticipant, setScreenShareParticipant] = useState<any>(null);
+  const [layout, setLayout] = useState<'grid' | 'presentation'>('grid');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
+  // Add track subscription handling with correct type checking
+  useEffect(() => {
+    // Function to ensure all tracks are properly subscribed
+    const ensureTracksSubscribed = () => {
+      for (const participant of participants) {
+        // Skip local participant as it doesn't need subscription
+        if (participant.isLocal) continue;
+        
+        // Cast to RemoteParticipant to access subscription methods
+        const remoteParticipant = participant as RemoteParticipant;
+        
+        // In LiveKit, tracks are automatically subscribed by default
+        // We can use setTrackSubscriptionPermissions if we need to control this
+        
+        // Instead of manually subscribing, we can check if tracks are available
+        const cameraPublication = remoteParticipant.getTrackPublication(Track.Source.Camera);
+        const microphonePublication = remoteParticipant.getTrackPublication(Track.Source.Microphone);
+        
+        // Log track status for debugging
+        if (cameraPublication) {
+          console.log(`Camera track for ${remoteParticipant.identity}: ${cameraPublication.isSubscribed ? 'subscribed' : 'not subscribed'}`);
+        }
+        
+        if (microphonePublication) {
+          console.log(`Microphone track for ${remoteParticipant.identity}: ${microphonePublication.isSubscribed ? 'subscribed' : 'not subscribed'}`);
+        }
+      }
+    };
+    
+    // Call initially
+    ensureTracksSubscribed();
+    
+    // Set up interval to periodically check
+    const interval = setInterval(ensureTracksSubscribed, 5000);
+    
+    return () => {
+      clearInterval(interval);
+    };
+  }, [participants]);
   
   // Detect screen sharing
   useEffect(() => {
@@ -38,6 +81,13 @@ export function VideoRoom({ roomName }: VideoRoomProps) {
     const checkScreenShare = () => {
       const screenSharer = findScreenShareParticipant();
       setScreenShareParticipant(screenSharer);
+      
+      // Automatically switch layout when screen sharing starts/stops
+      if (screenSharer && layout !== 'presentation') {
+        setLayout('presentation');
+      } else if (!screenSharer && layout !== 'grid') {
+        setLayout('grid');
+      }
     };
     
     // Check initially
@@ -64,13 +114,59 @@ export function VideoRoom({ roomName }: VideoRoomProps) {
         participant.off('trackUnmuted', handleTrackUnmuted);
       }
     };
-  }, [participants]);
+  }, [participants, layout]);
+  
+  // Add an effect to force camera and microphone activation on room join
+  useEffect(() => {
+    if (!room.localParticipant) return;
+    
+    const forceMediaActivation = async () => {
+      try {
+        // Get current states
+        const isCameraEnabled = room.localParticipant.isCameraEnabled;
+        const isMicEnabled = !room.localParticipant.isMicrophoneEnabled;
+        
+        // If camera should be on but isn't working properly
+        if (isCameraEnabled) {
+          // Toggle off and on to force republish
+          await room.localParticipant.setCameraEnabled(false);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          await room.localParticipant.setCameraEnabled(true);
+        }
+        
+        // If mic should be on but isn't working properly
+        if (isMicEnabled) {
+          // Toggle off and on to force republish
+          await room.localParticipant.setMicrophoneEnabled(false);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          await room.localParticipant.setMicrophoneEnabled(true);
+        }
+      } catch (e) {
+        console.error("Error forcing media activation:", e);
+      }
+    };
+    
+    // Run once after a delay to ensure room is fully connected
+    const timer = setTimeout(forceMediaActivation, 2000);
+    
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [room.localParticipant]);
   
   const togglePanel = (panel: string) => {
     if (activePanel === panel) {
       setActivePanel(null);
+      if (panel === 'settings') {
+        setIsSettingsOpen(false);
+      }
     } else {
       setActivePanel(panel);
+      if (panel === 'settings') {
+        setIsSettingsOpen(true);
+      } else if (activePanel === 'settings') {
+        setIsSettingsOpen(false);
+      }
     }
   };
   
@@ -82,14 +178,20 @@ export function VideoRoom({ roomName }: VideoRoomProps) {
           <h2 className="text-xl font-bold mb-4">{roomName}</h2>
           
           {/* Screen share takes priority if active */}
-          {screenShareParticipant ? (
-            <div className="grid grid-cols-1 gap-4 h-[calc(100%-2rem)]">
+          {layout === 'presentation' && screenShareParticipant ? (
+            <div className="grid grid-rows-[1fr_auto] gap-4 h-[calc(100%-2rem)]">
               <ScreenShareTile 
                 participant={screenShareParticipant} 
-                className="h-[70%]"
+                className="w-full h-full max-h-[70vh]"
               />
-              <div className="h-[30%]">
-                <VideoGrid />
+              <div className="h-auto">
+                <div className="flex overflow-x-auto gap-2 pb-2">
+                  {participants.map(participant => (
+                    <div key={participant.sid} className="w-40 flex-shrink-0">
+                      <VideoTile participant={participant} />
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           ) : (
@@ -119,7 +221,7 @@ export function VideoRoom({ roomName }: VideoRoomProps) {
               <div className="flex-1 overflow-hidden">
                 {activePanel === 'chat' && <RoomChat />}
                 {activePanel === 'participants' && <ParticipantsList />}
-                {activePanel === 'settings' && <RoomSettings />}
+                {activePanel === 'settings' && <RoomSettings isOpen={isSettingsOpen} />}
               </div>
             </div>
           </div>
@@ -128,12 +230,26 @@ export function VideoRoom({ roomName }: VideoRoomProps) {
       
       {/* Mobile panel - slides in from bottom on small screens */}
       <Sheet>
+        <SheetTrigger asChild>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="md:hidden fixed bottom-20 right-4 z-10"
+          >
+            More
+          </Button>
+        </SheetTrigger>
         <SheetContent side="bottom" className="h-[80vh] p-0 md:hidden">
           <Tabs defaultValue="chat" className="h-full flex flex-col">
             <TabsList className="grid grid-cols-3 w-full rounded-none">
               <TabsTrigger value="chat">Chat</TabsTrigger>
               <TabsTrigger value="participants">Participants</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
+              <TabsTrigger 
+                value="settings" 
+                onClick={() => setIsSettingsOpen(true)}
+              >
+                Settings
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="chat" className="flex-1 m-0 overflow-hidden">
               <RoomChat />
@@ -141,8 +257,12 @@ export function VideoRoom({ roomName }: VideoRoomProps) {
             <TabsContent value="participants" className="flex-1 m-0 overflow-hidden">
               <ParticipantsList />
             </TabsContent>
-            <TabsContent value="settings" className="flex-1 m-0 overflow-hidden">
-              <RoomSettings />
+            <TabsContent 
+              value="settings" 
+              className="flex-1 m-0 overflow-hidden"
+              onBlur={() => setIsSettingsOpen(false)}
+            >
+              <RoomSettings isOpen={isSettingsOpen} />
             </TabsContent>
           </Tabs>
         </SheetContent>
