@@ -115,9 +115,8 @@ export const MediaRoom = ({ chatId, video, audio }: MediaRoomProps) => {
   }
 
   return (
-    <div className="rounded-lg min-h-[30rem] overflow-hidden border">
+    <div className="rounded-lg overflow-hidden border">
       <LiveKitRoom
-        data-lk-theme="default"
         serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL}
         token={token}
         connect={true}
@@ -125,24 +124,7 @@ export const MediaRoom = ({ chatId, video, audio }: MediaRoomProps) => {
         audio={audio}
         onConnected={handleConnected}
         onError={handleError}
-        // Add these options to improve device handling
-        options={{
-          publishDefaults: {
-            simulcast: true,
-            // Use predefined VideoPresets instead of custom layers
-            videoSimulcastLayers: [
-              VideoPresets.h90,
-              VideoPresets.h180,
-              VideoPresets.h360
-            ],
-          },
-          adaptiveStream: true,
-          dynacast: true,
-        }}
       >
-        {currentCommunity && (
-          <CommunityPresenceProvider communityId={currentCommunity} />
-        )}
         
         <VideoRoom 
           roomName={chatId} 

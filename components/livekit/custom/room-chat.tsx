@@ -94,9 +94,6 @@ export function RoomChat() {
   
   return (
     <Card className="flex flex-col h-full">
-      <CardHeader className="py-3">
-        <CardTitle className="text-lg">Chat</CardTitle>
-      </CardHeader>
       <CardContent className="flex-1 p-0 overflow-hidden">
         <ScrollArea className="h-full px-4">
           <div className="space-y-4 py-4">

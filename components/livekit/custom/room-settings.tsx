@@ -177,9 +177,6 @@ export function RoomSettings({ isOpen = true }: RoomSettingsProps) {
   
   return (
     <Card className="flex flex-col h-full">
-      <CardHeader className="py-3">
-        <CardTitle className="text-lg">Settings</CardTitle>
-      </CardHeader>
       <CardContent className="space-y-4 overflow-auto">
         <div className="space-y-2">
           <Label htmlFor="camera">Camera</Label>

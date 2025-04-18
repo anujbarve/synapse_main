@@ -12,9 +12,6 @@ export function ParticipantsList() {
   
   return (
     <Card className="flex flex-col h-full">
-      <CardHeader className="py-3">
-        <CardTitle className="text-lg">Participants ({participants.length})</CardTitle>
-      </CardHeader>
       <CardContent className="flex-1 p-0 overflow-hidden">
         <ScrollArea className="h-full">
           <div className="space-y-1 px-1">

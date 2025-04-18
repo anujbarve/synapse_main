@@ -262,111 +262,104 @@ export function VideoRoom({ roomName, initialVideo = false, initialAudio = false
   };
 
   return (
-    <div className="flex flex-col h-screen max-h-screen">
-      <div className="flex-1 overflow-hidden flex">
-        {/* Main content area */}
-        <div
-          className={cn(
-            "flex-1 p-2 sm:p-4 overflow-auto",
-            activePanel && !isMobile ? "pr-0" : ""
-          )}
-        >
-          <h2 className="text-xl font-bold mb-2 sm:mb-4">{roomName}</h2>
-
-          {/* Screen share layout */}
-          {layout === "presentation" && screenShareParticipant ? (
-            <div className="flex flex-col h-[calc(100%-2rem)]">
-              {/* Main content - screen share */}
-              <div className="flex-1 min-h-0">
+    <div className="flex flex-col h-full w-full relative">
+      {/* Main Content Area */}
+      <div className="flex-1 grid grid-cols-1 overflow-hidden">
+        <div className="col-span-1 flex flex-col relative">
+          {/* Video Grid */}
+          <div className="flex-1 min-h-0 p-2">
+            {layout === "presentation" && screenShareParticipant ? (
+              <div className="h-full grid grid-rows-[1fr_auto]">
                 <ScreenShareTile
                   participant={screenShareParticipant}
-                  className="w-full h-full"
+                  className="w-full h-full rounded-xl overflow-hidden"
                 />
+                
+                {/* Participants Strip */}
+                <div className="h-24 mt-2 overflow-x-auto">
+                  <div className="flex gap-2">
+                    {participants.map((participant) => (
+                      <div 
+                        key={participant.sid} 
+                        className="w-32 flex-shrink-0"
+                      >
+                        <VideoTile
+                          participant={participant}
+                          className="h-full rounded-md"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-
-              {/* Participants strip - collapsible */}
-              <div
-                className={cn(
-                  "transition-all duration-300 ease-in-out overflow-hidden",
-                  showParticipantsStrip ? "h-16 sm:h-24 mt-2" : "h-0 mt-0"
-                )}
-              >
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm font-medium">Participants</span>
+            ) : (
+              <VideoGrid className="h-full rounded-xl" />
+            )}
+          </div>
+  
+          {/* Controls */}
+          <div className="p-2 flex justify-center">
+            <MediaControls
+              onToggleChat={() => togglePanel("chat")}
+              onToggleParticipants={() => togglePanel("participants")}
+              onToggleSettings={() => togglePanel("settings")}
+              activePanel={activePanel}
+              className="rounded-xl"
+            />
+          </div>
+  
+          {/* Side Panel - Desktop */}
+          {activePanel && !isMobile && (
+            <div 
+              className={cn(
+                "absolute top-0 right-0 bottom-0 w-96 bg-background border-l z-50",
+                "transform transition-transform duration-300 ease-in-out",
+                activePanel ? "translate-x-0" : "translate-x-full"
+              )}
+            >
+              <div className="h-full flex flex-col">
+                <div className="p-4 border-b flex justify-between items-center">
+                  <h3 className="text-lg font-semibold">
+                    {activePanel === "chat" && "Chat"}
+                    {activePanel === "participants" && "Participants"}
+                    {activePanel === "settings" && "Settings"}
+                  </h3>
                   <Button
                     variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      setShowParticipantsStrip(!showParticipantsStrip)
-                    }
-                    className="h-6 px-2"
+                    size="icon"
+                    onClick={() => setActivePanel(null)}
                   >
-                    {showParticipantsStrip ? "Hide" : "Show"}
+                    <X className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="flex overflow-x-auto gap-2 pb-2 h-full">
-                  {participants.map((participant) => (
-                    <div
-                      key={participant.sid}
-                      className="w-24 sm:w-32 flex-shrink-0 h-full"
-                    >
-                      <VideoTile
-                        participant={participant}
-                        className="h-full"
-                        showMuteIndicator={!isMobile}
-                      />
-                    </div>
-                  ))}
+  
+                <div className="flex-1 overflow-hidden">
+                  {activePanel === "chat" && <RoomChat />}
+                  {activePanel === "participants" && <ParticipantsList />}
+                  {activePanel === "settings" && (
+                    <RoomSettings isOpen={isSettingsOpen} />
+                  )}
                 </div>
               </div>
             </div>
-          ) : (
-            <VideoGrid className="h-[calc(100%-2rem)]" />
           )}
         </div>
-
-        {/* Side panel - visible on larger screens */}
-        {activePanel && !isMobile && (
-          <div className="w-64 sm:w-80 border-l">
-            <div className="h-full flex flex-col">
-              <div className="p-2 border-b flex justify-between items-center">
-                <h3 className="font-medium">
-                  {activePanel === "chat" && "Chat"}
-                  {activePanel === "participants" && "Participants"}
-                  {activePanel === "settings" && "Settings"}
-                </h3>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setActivePanel(null)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="flex-1 overflow-hidden">
-                {activePanel === "chat" && <RoomChat />}
-                {activePanel === "participants" && <ParticipantsList />}
-                {activePanel === "settings" && (
-                  <RoomSettings isOpen={isSettingsOpen} />
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
-
-      {/* Mobile panel - slides in from bottom on small screens */}
+  
+      {/* Mobile Sheet */}
       <Sheet
         open={isMobile && !!activePanel}
         onOpenChange={(open) => {
           if (!open) setActivePanel(null);
         }}
       >
-        <SheetContent side="bottom" className="h-[80vh] p-0">
+        <SheetContent 
+          side="right" 
+          className="w-[90vw] rounded-l-2xl"
+        >
           <div className="h-full flex flex-col">
-            <div className="p-2 border-b flex justify-between items-center">
-              <h3 className="font-medium">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h3 className="text-lg font-semibold">
                 {activePanel === "chat" && "Chat"}
                 {activePanel === "participants" && "Participants"}
                 {activePanel === "settings" && "Settings"}
@@ -379,7 +372,7 @@ export function VideoRoom({ roomName, initialVideo = false, initialAudio = false
                 <X className="h-4 w-4" />
               </Button>
             </div>
-
+  
             <div className="flex-1 overflow-hidden">
               {activePanel === "chat" && <RoomChat />}
               {activePanel === "participants" && <ParticipantsList />}
@@ -390,16 +383,6 @@ export function VideoRoom({ roomName, initialVideo = false, initialAudio = false
           </div>
         </SheetContent>
       </Sheet>
-
-      {/* Controls */}
-      <div className="p-2 sm:p-4 flex justify-center">
-        <MediaControls
-          onToggleChat={() => togglePanel("chat")}
-          onToggleParticipants={() => togglePanel("participants")}
-          onToggleSettings={() => togglePanel("settings")}
-          activePanel={activePanel} // Pass the activePanel state
-        />
-      </div>
     </div>
   );
 }

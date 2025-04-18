@@ -31,13 +31,15 @@ interface MediaControlsProps {
   onToggleParticipants: () => void;
   onToggleSettings: () => void;
   activePanel?: string | null; // Add this prop to receive the active panel state
+  className?: string;
 }
 
 export function MediaControls({ 
     onToggleChat, 
     onToggleParticipants,
     onToggleSettings,
-    activePanel = null // Default to null if not provided
+    activePanel = null, // Default to null if not provided
+    className
 }: MediaControlsProps) {
   const room = useRoomContext();
   const participants = useParticipants();
@@ -198,8 +200,9 @@ export function MediaControls({
   return (
     <TooltipProvider>
       <div className={cn(
-        "flex items-center gap-1 sm:gap-2 p-2 sm:p-3 bg-card rounded-lg shadow-lg",
-        isMobile ? "w-full justify-between" : ""
+        "flex items-center gap-2 p-2 bg-background rounded-xl border",
+        "shadow-sm",
+        className
       )}>
         <div className="flex items-center gap-1 sm:gap-2">
           <Tooltip>
@@ -208,11 +211,14 @@ export function MediaControls({
                 pressed={isMicEnabled} 
                 onPressedChange={toggleMic}
                 aria-label="Toggle microphone"
-                className="data-[state=on]:bg-green-100 data-[state=on]:text-green-900"
+                className={cn(
+                  "data-[state=on]:bg-accent data-[state=on]:text-accent-foreground",
+                  "hover:bg-accent/50"
+                )}
               >
                 {isMicEnabled ? 
                   <Mic className="h-4 w-4" /> : 
-                  <MicOff className="h-4 w-4" />
+                  <MicOff className="h-4 w-4 text-destructive" />
                 }
               </Toggle>
             </TooltipTrigger>
@@ -227,11 +233,14 @@ export function MediaControls({
                 pressed={isCameraEnabled} 
                 onPressedChange={toggleCamera}
                 aria-label="Toggle camera"
-                className="data-[state=on]:bg-green-100 data-[state=on]:text-green-900"
+                className={cn(
+                  "data-[state=on]:bg-accent data-[state=on]:text-accent-foreground",
+                  "hover:bg-accent/50"
+                )}
               >
                 {isCameraEnabled ? 
                   <Video className="h-4 w-4" /> : 
-                  <VideoOff className="h-4 w-4" />
+                  <VideoOff className="h-4 w-4 text-destructive" />
                 }
               </Toggle>
             </TooltipTrigger>
@@ -246,10 +255,13 @@ export function MediaControls({
                 pressed={isScreenShareEnabled} 
                 onPressedChange={toggleScreenShare}
                 aria-label="Toggle screen share"
-                className="data-[state=on]:bg-blue-100 data-[state=on]:text-blue-900"
+                className={cn(
+                  "data-[state=on]:bg-accent data-[state=on]:text-accent-foreground",
+                  "hover:bg-accent/50"
+                )}
               >
                 {isScreenShareEnabled ? 
-                  <ScreenShare className="h-4 w-4" /> : 
+                  <ScreenShare className="h-4 w-4 text-primary" /> : 
                   <ScreenShareOff className="h-4 w-4" />
                 }
               </Toggle>
@@ -269,7 +281,10 @@ export function MediaControls({
                 variant="ghost" 
                 size="icon"
                 onClick={onToggleChat}
-                className={isMobile ? "hidden" : ""}
+                className={cn(
+                  isMobile ? "hidden" : "",
+                  "hover:bg-accent hover:text-accent-foreground"
+                )}
               >
                 <MessageSquare className="h-4 w-4" />
               </Button>
@@ -283,12 +298,12 @@ export function MediaControls({
                 variant="ghost" 
                 size="icon"
                 onClick={onToggleParticipants}
-                className={isMobile ? "hidden" : ""}
+                className={cn(
+                  isMobile ? "hidden" : "",
+                  "hover:bg-accent hover:text-accent-foreground"
+                )}
               >
                 <Users className="h-4 w-4" />
-                <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                  {participants.length}
-                </span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>Participants</TooltipContent>
@@ -300,7 +315,10 @@ export function MediaControls({
                 variant="ghost" 
                 size="icon"
                 onClick={onToggleSettings}
-                className={isMobile ? "hidden" : ""}
+                className={cn(
+                  isMobile ? "hidden" : "",
+                  "hover:bg-accent hover:text-accent-foreground"
+                )}
               >
                 <Settings className="h-4 w-4" />
               </Button>
