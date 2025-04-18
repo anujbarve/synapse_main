@@ -21,6 +21,7 @@ export interface Post {
 
 export interface PostWithAuthor extends Post {
   author: {
+    id : string;
     username: string;
     profile_picture: string | null;
   };
@@ -105,6 +106,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
             `
             *,
             author:users!posts_user_id_fkey (
+              id,
               username,
               profile_picture
             ),
@@ -147,6 +149,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
             created_at: post.created_at,
             updated_at: post.updated_at,
             author: {
+              id: post.author.id,
               username: post.author.username,
               profile_picture: post.author.profile_picture,
             },
@@ -221,6 +224,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
             `
           *,
           author:users!posts_user_id_fkey (
+            id,
             username,
             profile_picture
           ),
@@ -250,6 +254,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
           return {
             ...post,
             author: {
+              id: post.author.id,
               username: post.author.username,
               profile_picture: post.author.profile_picture,
             },
@@ -287,6 +292,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
             `
           *,
           author:users!posts_user_id_fkey (
+            id,
             username,
             profile_picture
           ),
@@ -317,6 +323,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
           return {
             ...post,
             author: {
+              id: post.author.id,
               username: post.author.username,
               profile_picture: post.author.profile_picture,
             },
@@ -346,6 +353,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
             `
             *,
             author:users!posts_user_id_fkey (
+              id,
               username,
               profile_picture
             )
@@ -385,6 +393,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
         created_at: postResponse.data.created_at,
         updated_at: postResponse.data.updated_at,
         author: {
+          id: postResponse.data.author.id,
           username: postResponse.data.author.username,
           profile_picture: postResponse.data.author.profile_picture,
         },
@@ -423,6 +432,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
           `
           *,
           author:users!posts_user_id_fkey (
+            id,
             username,
             profile_picture
           )
@@ -445,6 +455,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
         upvotes: data.upvotes,
         downvotes: data.downvotes,
         author: {
+          id: data.author.id,
           username: data.author.username,
           profile_picture: data.author.profile_picture,
         },
@@ -481,6 +492,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
           `
           *,
           author:users!posts_user_id_fkey (
+            id,
             username,
             profile_picture
           )
@@ -503,6 +515,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
         created_at: data.created_at,
         updated_at: data.updated_at,
         author: {
+          id: data.author.id,
           username: data.author.username,
           profile_picture: data.author.profile_picture,
         },

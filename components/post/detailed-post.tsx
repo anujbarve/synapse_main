@@ -46,6 +46,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "../ui/alert-dialog";
+import Link from "next/link";
 
 // Create Context for Comment Functions
 interface CommentContextType {
@@ -239,7 +240,11 @@ const CommentComponent = React.memo(
           </div>
         ) : (
           <p className="text-sm text-foreground/90 whitespace-pre-wrap">
-            {parseAndRenderTimestamps(comment.content,isVideoPost,handleTimestampClick)}
+            {parseAndRenderTimestamps(
+              comment.content,
+              isVideoPost,
+              handleTimestampClick
+            )}
           </p>
         )}
 
@@ -499,7 +504,13 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
                   {post.author.username.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <span>Posted by {post.author.username}</span>
+
+              <Link
+                href={`/account/${post.author.id}`}
+                className="hover:underline"
+              >
+                <span>Posted by {post.author.username}</span>
+              </Link>
               {post.community && (
                 <>
                   <span>in {post.community.name}</span>
@@ -674,20 +685,20 @@ const parseAndRenderTimestamps = (
     const timestamp = match[0];
     const [_, hours, minutes, seconds] = match;
 
-    console.log(_)
+    console.log(_);
 
     // Calculate total seconds
-    const totalSeconds = 
-      (hours ? parseInt(hours) * 3600 : 0) + 
-      parseInt(minutes) * 60 + 
+    const totalSeconds =
+      (hours ? parseInt(hours) * 3600 : 0) +
+      parseInt(minutes) * 60 +
       parseInt(seconds);
 
     console.log({
       timestamp,
-      hours: hours || '00',
+      hours: hours || "00",
       minutes,
       seconds,
-      totalSeconds
+      totalSeconds,
     });
 
     parts.push(

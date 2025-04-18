@@ -35,6 +35,7 @@ interface PostProps {
   downvotes: number;
   createdAt: string;
   author: {
+    id : string;
     username: string;
     profile_picture: string | null;
   };
@@ -105,7 +106,7 @@ export function Post({
               Posted by{" "}
               <Link 
 
-              href={`/account/${author.username}`}
+              href={`/account/${author.id}`}
               className="hover:underline"
               >
                 {author.username}
