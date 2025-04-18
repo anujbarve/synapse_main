@@ -70,6 +70,7 @@ export function RoomSettings({ isOpen = true }: RoomSettingsProps) {
   // Create and attach preview
   useEffect(() => {
     let track: MediaStreamTrack | null = null;
+    let stream: MediaStream | null = null;
     
     async function startVideoPreview() {
       if (selectedVideoDevice && isOpen) {
@@ -80,7 +81,13 @@ export function RoomSettings({ isOpen = true }: RoomSettingsProps) {
             setPreviewTrack(null);
           }
           
-          const stream = await navigator.mediaDevices.getUserMedia({
+          // Stop any existing stream
+          if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+          }
+          
+          // Create a new stream with the selected device
+          stream = await navigator.mediaDevices.getUserMedia({
             video: { deviceId: selectedVideoDevice }
           });
           
@@ -89,6 +96,13 @@ export function RoomSettings({ isOpen = true }: RoomSettingsProps) {
           
           if (videoPreviewRef.current && track) {
             videoPreviewRef.current.srcObject = new MediaStream([track]);
+            
+            // Ensure the video plays
+            try {
+              await videoPreviewRef.current.play();
+            } catch (e) {
+              console.warn('Auto-play failed:', e);
+            }
           }
         } catch (e) {
           console.error("Error starting video preview:", e);
@@ -96,17 +110,21 @@ export function RoomSettings({ isOpen = true }: RoomSettingsProps) {
       }
     }
     
-    startVideoPreview();
+    // Add a small delay to ensure DOM is ready
+    const timer = setTimeout(startVideoPreview, 100);
     
     // Cleanup function
     return () => {
+      clearTimeout(timer);
       if (track) {
         track.stop();
-        setPreviewTrack(null);
       }
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      setPreviewTrack(null);
     };
   }, [selectedVideoDevice, isOpen, previewTrack]);
-  
   // Cleanup when component unmounts or when isOpen changes
   useEffect(() => {
     if (!isOpen && previewTrack) {
