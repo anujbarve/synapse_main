@@ -15,7 +15,9 @@ import {
   MessageSquare,
   Users,
   Settings,
-  MoreHorizontal
+  MoreHorizontal,
+  StopCircle,
+  CirclePlay,
 } from "lucide-react";
 import { 
   Tooltip,
@@ -32,6 +34,9 @@ interface MediaControlsProps {
   onToggleSettings: () => void;
   activePanel?: string | null; // Add this prop to receive the active panel state
   className?: string;
+  isRecording?: boolean;
+  onStartRecording?: () => void;
+  onStopRecording?: () => void;
 }
 
 export function MediaControls({ 
@@ -39,7 +44,10 @@ export function MediaControls({
     onToggleParticipants,
     onToggleSettings,
     activePanel = null, // Default to null if not provided
-    className
+    className,
+    isRecording = false,
+    onStartRecording,
+    onStopRecording
 }: MediaControlsProps) {
   const room = useRoomContext();
   const [isCameraEnabled, setIsCameraEnabled] = useState(false);
@@ -307,6 +315,34 @@ export function MediaControls({
             </TooltipTrigger>
             <TooltipContent>Participants</TooltipContent>
           </Tooltip>
+
+          <Tooltip>
+    <TooltipTrigger asChild>
+      <Toggle 
+        pressed={isRecording} 
+        onPressedChange={() => {
+          if (isRecording) {
+            onStopRecording?.();
+          } else {
+            onStartRecording?.();
+          }
+        }}
+        aria-label="Toggle recording"
+        className={cn(
+          "data-[state=on]:bg-accent data-[state=on]:text-accent-foreground",
+          "hover:bg-accent/50"
+        )}
+      >
+        {isRecording ? 
+          <StopCircle className="h-4 w-4 text-destructive" /> : 
+          <CirclePlay className="h-4 w-4" />
+        }
+      </Toggle>
+    </TooltipTrigger>
+    <TooltipContent>
+      {isRecording ? 'Stop recording' : 'Start recording'}
+    </TooltipContent>
+  </Tooltip>
           
           <Tooltip>
             <TooltipTrigger asChild>

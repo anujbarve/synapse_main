@@ -1,5 +1,5 @@
 // components/custom/video-room.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParticipants, useRoomContext } from "@livekit/components-react";
 import { Track, RemoteParticipant, Participant } from "livekit-client";
 import { VideoGrid } from "./video-grid";
@@ -8,19 +8,25 @@ import { RoomChat } from "./room-chat";
 import { ParticipantsList } from "./participants-list";
 import { RoomSettings } from "./room-settings";
 import { ScreenShareTile } from "./screen-share-tile";
-import { VideoTile } from "./video-tile"; 
+import { VideoTile } from "./video-tile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { CircleCheck, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { saveAs } from "file-saver";
+import { toast } from "sonner";
 
 interface VideoRoomProps {
-    roomName: string;
-    initialVideo?: boolean;
-    initialAudio?: boolean;
+  roomName: string;
+  initialVideo?: boolean;
+  initialAudio?: boolean;
 }
 
-export function VideoRoom({ initialVideo = false, initialAudio = false }: VideoRoomProps) {
+export function VideoRoom({
+  roomName,
+  initialVideo = false,
+  initialAudio = false,
+}: VideoRoomProps) {
   const room = useRoomContext();
   const participants = useParticipants();
   const [activePanel, setActivePanel] = useState<string | null>(null);
@@ -30,6 +36,176 @@ export function VideoRoom({ initialVideo = false, initialAudio = false }: VideoR
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+
+  // Handle recording start
+  const handleStartRecording = async () => {
+    try {
+      // Clear previous recording data
+      recordedChunksRef.current = [];
+      setRecordingBlob(null);
+
+      // Show toast notification that recording is about to start
+      toast.info("Preparing to record...", {
+        description:
+          "Please select the window containing the meeting in the next dialog.",
+        duration: 5000,
+      });
+
+      // Use the browser's getDisplayMedia API to capture the screen
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          displaySurface: "window", // Try to focus on a specific window
+        },
+        audio: true, // Try to capture system audio if supported
+      });
+
+      // Try to get audio from microphone as well
+      let audioStream: MediaStream | null = null;
+      try {
+        audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+      } catch (e) {
+        console.warn("Could not get microphone access for recording:", e);
+        toast.warning("Could not access microphone", {
+          description: "Recording will continue without microphone audio.",
+          duration: 4000,
+        });
+      }
+
+      // Combine the streams if we have audio
+      if (audioStream) {
+        const audioTrack = audioStream.getAudioTracks()[0];
+        if (audioTrack) {
+          displayStream.addTrack(audioTrack);
+        }
+      }
+
+      // Check for MP4 support, fallback to WebM
+      let mimeType = "video/webm";
+      if (MediaRecorder.isTypeSupported("video/mp4")) {
+        mimeType = "video/mp4";
+      }
+
+      // Create MediaRecorder
+      const mediaRecorder = new MediaRecorder(displayStream, {
+        mimeType,
+        videoBitsPerSecond: 3000000, // 3 Mbps for better quality
+      });
+
+      // Set up event handlers
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        // When recording stops, create a blob from all chunks
+        const blob = new Blob(recordedChunksRef.current, { type: mimeType });
+        setRecordingBlob(blob);
+
+        // Stop all tracks to release resources
+        displayStream.getTracks().forEach((track) => track.stop());
+        if (audioStream) {
+          audioStream.getTracks().forEach((track) => track.stop());
+        }
+
+        // Show toast notification that recording has stopped
+        toast.success("Recording complete!", {
+          description: "Your recording is ready to download.",
+          duration: 5000,
+        });
+      };
+
+      // Store the recorder reference
+      mediaRecorderRef.current = mediaRecorder;
+
+      // Start recording
+      mediaRecorder.start(1000); // Collect data every second
+      setIsRecording(true);
+
+      // Show toast notification that recording has started
+      toast.success("Recording started", {
+        description: "Your meeting is now being recorded.",
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error("Failed to start recording:", error);
+      toast.error("Failed to start recording", {
+        description: "Please check console for details and try again.",
+        duration: 5000,
+      });
+    }
+  };
+
+  // Handle recording stop
+  const handleStopRecording = () => {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
+      toast.info("Stopping recording...", {
+        duration: 2000,
+      });
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  // Handle download recording
+  const handleDownloadRecording = () => {
+    if (!recordingBlob) {
+      toast.error("No recording available", {
+        description: "There is no recording available to download.",
+        duration: 3000,
+      });
+      return;
+    }
+
+    try {
+      // Determine file extension based on MIME type
+      const fileExtension = recordingBlob.type.includes("mp4") ? "mp4" : "webm";
+
+      // Create a formatted date string for the filename
+      const dateStr = new Date().toISOString().replace(/[:.]/g, "-");
+
+      // Create the filename
+      const fileName = `meeting-${roomName}-${dateStr}.${fileExtension}`;
+
+      // Use FileSaver to save the file
+      saveAs(recordingBlob, fileName);
+
+      // Show toast notification that download has started
+      toast.success("Download started", {
+        description: "Your recording is being downloaded.",
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error("Error downloading recording:", error);
+      toast.error("Download failed", {
+        description: "Failed to download recording. Please try again.",
+        duration: 4000,
+      });
+    }
+  };
+
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (
+        mediaRecorderRef.current &&
+        mediaRecorderRef.current.state !== "inactive"
+      ) {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
   // Detect viewport size
   useEffect(() => {
     const checkViewport = () => {
@@ -47,37 +223,41 @@ export function VideoRoom({ initialVideo = false, initialAudio = false }: VideoR
     };
   }, []);
 
-   // Add an effect to handle initial device state
-   useEffect(() => {
+  // Add an effect to handle initial device state
+  useEffect(() => {
     if (!room.localParticipant) return;
-    
+
     const setupInitialState = async () => {
       try {
         // Set camera state
         if (initialVideo !== room.localParticipant.isCameraEnabled) {
           await room.localParticipant.setCameraEnabled(initialVideo);
         }
-        
+
         // Set microphone state
         if (initialAudio !== room.localParticipant.isMicrophoneEnabled) {
           await room.localParticipant.setMicrophoneEnabled(initialAudio);
         }
-        
+
         // Force a re-publish of tracks to ensure they're visible
         if (initialVideo) {
-          const cameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera);
+          const cameraTrack = room.localParticipant.getTrackPublication(
+            Track.Source.Camera
+          );
           if (cameraTrack && cameraTrack.track) {
             await cameraTrack.mute();
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
             await cameraTrack.unmute();
           }
         }
-        
+
         if (initialAudio) {
-          const micTrack = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+          const micTrack = room.localParticipant.getTrackPublication(
+            Track.Source.Microphone
+          );
           if (micTrack && micTrack.track) {
             await micTrack.mute();
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
             await micTrack.unmute();
           }
         }
@@ -85,10 +265,10 @@ export function VideoRoom({ initialVideo = false, initialAudio = false }: VideoR
         console.error("Error setting initial device state:", e);
       }
     };
-    
+
     // Add a slight delay to ensure room is fully initialized
     const timer = setTimeout(setupInitialState, 1000);
-    
+
     return () => {
       clearTimeout(timer);
     };
@@ -272,15 +452,12 @@ export function VideoRoom({ initialVideo = false, initialAudio = false }: VideoR
                   participant={screenShareParticipant}
                   className="w-full h-full rounded-xl overflow-hidden"
                 />
-                
+
                 {/* Participants Strip */}
                 <div className="h-24 mt-2 overflow-x-auto">
                   <div className="flex gap-2">
                     {participants.map((participant) => (
-                      <div 
-                        key={participant.sid} 
-                        className="w-32 flex-shrink-0"
-                      >
+                      <div key={participant.sid} className="w-32 flex-shrink-0">
                         <VideoTile
                           participant={participant}
                           className="h-full rounded-md"
@@ -294,7 +471,7 @@ export function VideoRoom({ initialVideo = false, initialAudio = false }: VideoR
               <VideoGrid className="h-full rounded-xl" />
             )}
           </div>
-  
+
           {/* Controls */}
           <div className="p-2 flex justify-center">
             <MediaControls
@@ -302,13 +479,16 @@ export function VideoRoom({ initialVideo = false, initialAudio = false }: VideoR
               onToggleParticipants={() => togglePanel("participants")}
               onToggleSettings={() => togglePanel("settings")}
               activePanel={activePanel}
+              isRecording={isRecording}
+              onStartRecording={handleStartRecording}
+              onStopRecording={handleStopRecording}
               className="rounded-xl"
             />
           </div>
-  
+
           {/* Side Panel - Desktop */}
           {activePanel && !isMobile && (
-            <div 
+            <div
               className={cn(
                 "absolute top-0 right-0 bottom-0 w-96 bg-background border-l z-50",
                 "transform transition-transform duration-300 ease-in-out",
@@ -330,7 +510,7 @@ export function VideoRoom({ initialVideo = false, initialAudio = false }: VideoR
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-  
+
                 <div className="flex-1 overflow-hidden">
                   {activePanel === "chat" && <RoomChat />}
                   {activePanel === "participants" && <ParticipantsList />}
@@ -343,7 +523,38 @@ export function VideoRoom({ initialVideo = false, initialAudio = false }: VideoR
           )}
         </div>
       </div>
-  
+
+      {/* Fixed Download Panel */}
+      {!isRecording && recordingBlob && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-background border shadow-lg rounded-lg p-4 z-50 flex flex-col items-center">
+          <h3 className="font-medium mb-2">Recording Complete</h3>
+          <p className="text-sm text-muted-foreground mb-3">
+            Your recording is ready to download
+          </p>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleDownloadRecording}
+              className="bg-primary hover:bg-primary/90"
+            >
+              <CircleCheck className="h-4 w-4 mr-2" />
+              Download Recording
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRecordingBlob(null);
+                toast.info("Recording dismissed", {
+                  description: "The recording has been discarded.",
+                  duration: 3000,
+                });
+              }}
+            >
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Mobile Sheet */}
       <Sheet
         open={isMobile && !!activePanel}
@@ -351,10 +562,7 @@ export function VideoRoom({ initialVideo = false, initialAudio = false }: VideoR
           if (!open) setActivePanel(null);
         }}
       >
-        <SheetContent 
-          side="right" 
-          className="w-[90vw] rounded-l-2xl"
-        >
+        <SheetContent side="right" className="w-[90vw] rounded-l-2xl">
           <div className="h-full flex flex-col">
             <div className="p-4 border-b flex justify-between items-center">
               <h3 className="text-lg font-semibold">
@@ -370,7 +578,7 @@ export function VideoRoom({ initialVideo = false, initialAudio = false }: VideoR
                 <X className="h-4 w-4" />
               </Button>
             </div>
-  
+
             <div className="flex-1 overflow-hidden">
               {activePanel === "chat" && <RoomChat />}
               {activePanel === "participants" && <ParticipantsList />}
