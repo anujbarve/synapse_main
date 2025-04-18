@@ -5,10 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { LiveKitRoom } from "@livekit/components-react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useUserStore } from "@/stores/user_store";
-import { CommunityPresenceProvider } from "../community-presence";
-import { useSingleCommunityStore } from "@/stores/single_community_store";
 import { VideoRoom } from "./custom/video-room";
-import { Room, Track, VideoPresets } from "livekit-client";
 import { Button } from "../ui/button";
 
 interface MediaRoomProps {
@@ -20,8 +17,6 @@ interface MediaRoomProps {
 export const MediaRoom = ({ chatId, video, audio }: MediaRoomProps) => {
   const { user } = useUserStore();
   const [token, setToken] = useState<string>("");
-  const { currentCommunity } = useSingleCommunityStore();
-  const [roomInstance, setRoomInstance] = useState<Room | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
 

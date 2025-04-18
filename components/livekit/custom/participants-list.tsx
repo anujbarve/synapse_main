@@ -3,7 +3,7 @@ import { useParticipants } from "@livekit/components-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Mic, MicOff, Video, VideoOff, ScreenShare } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card ,CardContent } from "@/components/ui/card";
 import { Track } from "livekit-client";
 import { Badge } from "@/components/ui/badge";
 

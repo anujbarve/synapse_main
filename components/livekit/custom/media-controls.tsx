@@ -1,6 +1,6 @@
 // components/custom/media-controls.tsx
 import { useEffect, useState } from "react";
-import { useParticipants, useRoomContext } from "@livekit/components-react";
+import { useRoomContext } from "@livekit/components-react";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
 import { Track } from "livekit-client";
@@ -42,7 +42,6 @@ export function MediaControls({
     className
 }: MediaControlsProps) {
   const room = useRoomContext();
-  const participants = useParticipants();
   const [isCameraEnabled, setIsCameraEnabled] = useState(false);
   const [isMicEnabled, setIsMicEnabled] = useState(false);
   const [isScreenShareEnabled, setIsScreenShareEnabled] = useState(false);

@@ -1,7 +1,7 @@
 // components/custom/room-settings.tsx
 import { useState, useEffect, useRef } from "react";
 import { useRoomContext } from "@livekit/components-react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";

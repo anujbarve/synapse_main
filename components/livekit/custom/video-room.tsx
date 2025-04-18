@@ -1,16 +1,15 @@
 // components/custom/video-room.tsx
 import { useState, useEffect } from "react";
 import { useParticipants, useRoomContext } from "@livekit/components-react";
-import { Track, RemoteParticipant } from "livekit-client";
+import { Track, RemoteParticipant, Participant } from "livekit-client";
 import { VideoGrid } from "./video-grid";
 import { MediaControls } from "./media-controls";
 import { RoomChat } from "./room-chat";
 import { ParticipantsList } from "./participants-list";
 import { RoomSettings } from "./room-settings";
 import { ScreenShareTile } from "./screen-share-tile";
-import { VideoTile } from "./video-tile"; // Make sure to import VideoTile
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { VideoTile } from "./video-tile"; 
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,15 +20,14 @@ interface VideoRoomProps {
     initialAudio?: boolean;
 }
 
-export function VideoRoom({ roomName, initialVideo = false, initialAudio = false }: VideoRoomProps) {
+export function VideoRoom({ initialVideo = false, initialAudio = false }: VideoRoomProps) {
   const room = useRoomContext();
   const participants = useParticipants();
   const [activePanel, setActivePanel] = useState<string | null>(null);
   const [screenShareParticipant, setScreenShareParticipant] =
-    useState<any>(null);
+    useState<Participant | null>(null);
   const [layout, setLayout] = useState<"grid" | "presentation">("grid");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [showParticipantsStrip, setShowParticipantsStrip] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 
   // Detect viewport size
