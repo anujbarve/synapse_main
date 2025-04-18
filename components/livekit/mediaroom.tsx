@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LiveKitRoom, VideoConference } from "@livekit/components-react";
+import { LiveKitRoom } from "@livekit/components-react";
 import "@livekit/components-styles";
 import { Loader2 } from "lucide-react";
 import { useUserStore } from "@/stores/user_store";
 import { VideoRoom } from "./custom/video-room";
-import { Button } from "../ui/button";
 
 interface MediaRoomProps {
   chatId: string;
@@ -17,8 +16,6 @@ interface MediaRoomProps {
 export const MediaRoom = ({ chatId, video, audio }: MediaRoomProps) => {
   const { user } = useUserStore();
   const [token, setToken] = useState<string>("");
-  const [isConnecting, setIsConnecting] = useState(true);
-  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Fetch token when user and chatId are available
   useEffect(() => {
@@ -60,8 +57,6 @@ export const MediaRoom = ({ chatId, video, audio }: MediaRoomProps) => {
         connect={true}
         video={video}
         audio={audio}
-        onConnected={handleConnected}
-        onError={handleError}
       >
         
         <VideoRoom 
