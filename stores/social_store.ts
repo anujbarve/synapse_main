@@ -39,7 +39,7 @@ export const useUserProfileStore = create<UserProfileStore>((set) => ({
       const { data: user, error: userError } = await supabase
         .from("users")
         .select("*")
-        .eq("username", userId)
+        .eq("id", userId)
         .single();
 
       if (userError || !user) {

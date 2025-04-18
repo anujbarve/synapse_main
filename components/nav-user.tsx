@@ -40,6 +40,7 @@ export function NavUser({
   user,
 }: {
   user: {
+    id : string;
     name: string;
     email: string;
     avatar: string;
@@ -139,7 +140,7 @@ export function NavUser({
                 Theme
               </DropdownMenuItem>
 
-              <Link href={`/account/${user.name}`}>
+              <Link href={`/account/${user.id}`}>
                 <DropdownMenuItem>
                   <BadgeCheck />
                   Account

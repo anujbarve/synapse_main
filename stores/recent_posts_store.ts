@@ -10,6 +10,7 @@ export interface RecentPost {
   downvotes: number;
   user_id: string;
   author: {
+    id : string;
     username: string;
     profile_picture: string | null;
   };
@@ -60,6 +61,7 @@ export const useRecentPostsStore = create<RecentPostsStore>((set, get) => ({
           downvotes,
           user_id,
           author:users!posts_user_id_fkey (
+            id,
             username,
             profile_picture
           ),

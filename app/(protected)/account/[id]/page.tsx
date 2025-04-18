@@ -56,7 +56,7 @@ export default function AccountPage({
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbPage>Account: {username}</BreadcrumbPage>
+                <BreadcrumbPage>Account: {profile.username}</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
@@ -108,7 +108,7 @@ export default function AccountPage({
           <section className="flex-1">
             <div className="bg-card rounded-lg shadow-sm p-6 mb-6">
               <h2 className="text-xl font-bold text-primary mb-6">
-                Posts by {username}
+                Posts by {profile.username}
               </h2>
               <PostsSection username={profile.username} />
             </div>

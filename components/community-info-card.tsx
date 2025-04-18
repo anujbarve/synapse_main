@@ -139,7 +139,7 @@ export function CommunityInfoCard({
             >
               <div className="space-y-2">
                 {users.map((user) => (
-                 <Link href={`/account/${user.username}`} key={user.id} >
+                 <Link href={`/account/${user.id}`} key={user.id} >
                   <div
                     key={user.id}
                     className="flex items-center justify-between p-2 hover:bg-muted rounded-lg transition-colors"

@@ -112,7 +112,7 @@ export function RecentPosts() {
                     <div className="flex items-center justify-center space-x-2 text-xs text-muted-foreground">
                       <span>
                         <Link
-                          href={`/account/${post.author.username}`}
+                          href={`/account/${post.author.id}`}
                           className="hover:underline"
                         >
                           {post.author.username}
