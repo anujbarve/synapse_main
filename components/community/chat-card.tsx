@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef} from "react";
 import { Separator } from "@radix-ui/react-separator";
 import { SidebarTrigger } from "../ui/sidebar";
 import { MessageType, useMessageStore, MessageWithSender } from "@/stores/messages_store";
@@ -128,9 +128,6 @@ export function ChatCard({
   // Derived Values
   const loggedInUserId = propUserId || user?.id;
   const isDM = !!receiverId && !communityId && !channelId;
-  const currentContextParams = isDM && loggedInUserId && receiverId
-      ? { userIds: [loggedInUserId, receiverId].sort() as [string, string] }
-      : { communityId, channelId };
 
   // Set community context
   useEffect(() => {
@@ -281,9 +278,9 @@ export function ChatCard({
       setUploadProgress(0);
       setSelectedFile(null);
       scrollToBottom('smooth');
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to send message with attachment", error);
-      toast.error(`Failed to send message: ${error?.message || 'Unknown error'}`);
+      toast.error(`Failed to send message: ${error || 'Unknown error'}`);
     }
   };
 
@@ -316,9 +313,9 @@ export function ChatCard({
       await sendMessage(messageData);
       setInputValue("");
       scrollToBottom('smooth');
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to send message", error);
-      toast.error(`Failed to send message: ${error?.message || 'Unknown error'}`);
+      toast.error(`Failed to send message: ${error|| 'Unknown error'}`);
     }
   };
 
@@ -327,9 +324,9 @@ export function ChatCard({
     try {
        await deleteMessage(messageId);
        toast.success("Message deleted.");
-    } catch (error: any) {
+    } catch (error) {
         console.error("Failed to delete message", error);
-        toast.error(`Failed to delete message: ${error?.message || 'Unknown error'}`);
+        toast.error(`Failed to delete message: ${error || 'Unknown error'}`);
     }
   };
 
@@ -350,9 +347,9 @@ export function ChatCard({
         await updateMessage(editingMessageId, { content: editingContent.trim() });
         toast.success("Message updated.");
         handleEditCancel();
-    } catch (error: any) {
+    } catch (error) {
         console.error("Failed to update message", error);
-        toast.error(`Failed to update message: ${error?.message || 'Unknown error'}`);
+        toast.error(`Failed to update message: ${error || 'Unknown error'}`);
     }
   };
 
@@ -819,7 +816,11 @@ export function OnlineMembersPopover({ communityId }: { communityId: number }) {
     // Ensure communityPresenceStore and initializePresence are correctly set up
     const cleanup = useCommunityPresenceStore.getState().initializePresence(communityId);
 
+    
+
     return () => {
+      console.info('Cleaning up presence for community:', communityId);
+      console.info('Cleanup function:', cleanup);
       // Ensure cleanup is correctly set up in your store
       useCommunityPresenceStore.getState().cleanup(communityId);
     };
