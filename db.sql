@@ -301,3 +301,38 @@ create index IF not exists idx_users_email on public.users using btree (email) T
 create trigger set_updated_at BEFORE
 update on users for EACH row
 execute FUNCTION update_updated_at_column ();
+
+create table public.user_connections (
+  id serial not null,
+  user_id uuid not null,
+  connected_user_id uuid not null,
+  status character varying(20) not null,
+  created_at timestamp with time zone null default CURRENT_TIMESTAMP,
+  updated_at timestamp with time zone null default CURRENT_TIMESTAMP,
+  constraint user_connections_pkey primary key (id),
+  constraint user_connections_unique unique (user_id, connected_user_id),
+  constraint user_connections_user_id_fkey foreign key (user_id) references users (id) on delete cascade,
+  constraint user_connections_connected_user_id_fkey foreign key (connected_user_id) references users (id) on delete cascade,
+  constraint user_connections_status_check check (
+    (
+      (status)::text = any (
+        array[
+          ('pending'::character varying)::text,
+          ('accepted'::character varying)::text,
+          ('blocked'::character varying)::text
+        ]
+      )
+    )
+  ),
+  constraint user_connections_different_users check (user_id <> connected_user_id)
+) TABLESPACE pg_default;
+
+create index IF not exists idx_user_connections_user_id on public.user_connections using btree (user_id) TABLESPACE pg_default;
+
+create index IF not exists idx_user_connections_connected_user_id on public.user_connections using btree (connected_user_id) TABLESPACE pg_default;
+
+create index IF not exists idx_user_connections_status on public.user_connections using btree (status) TABLESPACE pg_default;
+
+create trigger set_updated_at BEFORE
+update on user_connections for EACH row
+execute FUNCTION update_updated_at_column();

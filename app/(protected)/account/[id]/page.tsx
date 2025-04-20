@@ -1,120 +1,151 @@
+// app/profile/[username]/page.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbSeparator,
-  BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
-import Image from "next/image";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { PostsSection } from "@/components/account/post_section";
+import { useEffect, useState } from "react";
 import { useUserProfileStore } from "@/stores/social_store";
+import { useUserStore } from "@/stores/user_store";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ProfileHeader } from "@/components/account/profile-header";
+import { FriendsList } from "@/components/account/connection-list";
+import { FriendRequests } from "@/components/account/connection-request";
+import { ActivityFeed } from "@/components/account/activity-feed";
+import { PostsSection } from "@/components/account/post_section";
+import { Separator } from "@/components/ui/separator";
 
-export default function AccountPage({
+// Define a type that matches what ProfileHeader expects
+type ProfileHeaderProps = {
+  id: string;
+  username: string;
+  email?: string;
+  bio?: string | null;
+  profile_picture?: string | null;
+  location?: string | null;
+  created_at?: string | null;
+  reputation?: number; // Note: not null
+  post_count?: number;
+  comment_count?: number;
+};
+
+export default function ProfilePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { profile, fetchUserProfile } = useUserProfileStore();
-
+  const { user: currentUser } = useUserStore(); // Get the current authenticated user
+  const [isLoading, setIsLoading] = useState(true);
   const [username, setusername] = useState<string | null>(null);
   
-    useEffect(() => {
-      async function getParams() {
-        const resolvedParams = await params;
-        setusername(resolvedParams.id);
+  useEffect(() => {
+    async function getParams() {
+      const resolvedParams = await params;
+      setusername(resolvedParams.id);
+    }
+    getParams();
+  }, [params]);
+
+  useEffect(() => {
+    if(!username) return; 
+    setIsLoading(true);
+    fetchUserProfile(username);
+    setIsLoading(false);
+  }, [username, fetchUserProfile]);
+
+  // Check if the current user is viewing their own profile
+  // This is the correct way to determine if it's the user's own profile
+  const isOwnProfile = currentUser?.id === profile?.id;
+
+  // Convert profile to the expected format for ProfileHeader
+  const headerProfile: ProfileHeaderProps = profile 
+    ? {
+        id: profile.id,
+        username: profile.username,
+        email: profile.email,
+        bio: profile.bio,
+        profile_picture: profile.profile_picture,
+        created_at: profile.created_at,
+        // Convert null to undefined for reputation
+        reputation: profile.reputation !== null ? profile.reputation : undefined,
+        post_count: profile.post_count,
+        comment_count: profile.comment_count
       }
-      getParams();
-    }, [params]);
-
-    useEffect(() => {
-      if(!username) return; 
-      fetchUserProfile(username);
-    }, [username,fetchUserProfile]);
-
-  if (!profile) {
-    return <p className="text-center mt-10">Loading user data...</p>;
-  }
+    : { id: '', username: '' };
 
   return (
-    <>
-      <header className="flex h-16 shrink-0 items-center gap-2">
-        <div className="flex items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/dashboard">Home</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="hidden md:block" />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Account: {profile.username}</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+    <div className="container mx-auto px-4 py-6 max-w-7xl">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Left sidebar */}
+        <div className="md:col-span-1 space-y-6">
+          <ProfileHeader profile={headerProfile} isLoading={isLoading} />
+          
+          {isOwnProfile && !isLoading && profile && (
+            <FriendRequests userId={profile.id} compact />
+          )}
+          
+          {!isLoading && profile && (
+            <FriendsList userId={profile.id} isOwnProfile={isOwnProfile} compact />
+          )}
         </div>
-      </header>
-
-      <div>
-        <main className="flex flex-1 flex-col lg:flex-row w-full mx-auto gap-6 p-4 max-w-screen-xl">
-          {/* Sidebar */}
-          <aside className="w-full lg:w-1/3 bg-card rounded-lg shadow-sm p-6">
-            <div className="flex flex-col items-center gap-6">
-              <Avatar className="h-32 w-32 rounded-lg">
-                {profile.profile_picture ? (
-                  <Image
-                    height={512}
-                    width={512}
-                    src={profile.profile_picture}
-                    alt="Profile Image"
-                  />
-                ) : (
-                  <AvatarFallback className="rounded-lg">
-                    {profile.username.slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
+        
+        {/* Main content */}
+        <div className="md:col-span-2 space-y-6">
+          <Tabs defaultValue="posts" className="w-full">
+            <TabsList className="w-full grid grid-cols-2">
+              <TabsTrigger value="posts">Posts</TabsTrigger>
+              <TabsTrigger value="about">About</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="posts" className="mt-6">
+              {isOwnProfile && (
+                <ActivityFeed />
+              )}
+              
+              <div className="mt-6">
+                <h2 className="text-lg font-semibold mb-4">
+                  {isOwnProfile ? "Your Posts" : `${profile?.username}'s Posts`}
+                </h2>
+                <Separator className="mb-6" />
+                {!isLoading && profile && (
+                  <PostsSection username={profile.username} />
                 )}
-              </Avatar>
-              <div className="text-center">
-                <h1 className="text-xl font-bold text-primary">User: {profile.username}</h1>
-                <p className="text-sm text-muted-foreground">Email: {profile.email}</p>
               </div>
-              <div className="flex w-full justify-around text-sm text-muted-foreground">
-                <div className="text-center">
-                  <p className="font-bold">{profile.post_count}</p>
-                  <p>Posts</p>
-                </div>
-                <div className="text-center">
-                  <p className="font-bold">{profile.comment_count}</p>
-                  <p>Comments</p>
-                </div>
-                <div className="text-center">
-                  <p className="font-bold">{profile.reputation ?? 0}</p>
-                  <p>Reputation</p>
+            </TabsContent>
+            
+            <TabsContent value="about" className="mt-6">
+              <div className="bg-card rounded-lg p-6">
+                <h2 className="text-lg font-semibold mb-4">About</h2>
+                <Separator className="mb-6" />
+                
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Bio</h3>
+                    <p className="mt-1">{profile?.bio || "No bio provided"}</p>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Email</h3>
+                    <p className="mt-1">{profile?.email || "No email provided"}</p>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Joined</h3>
+                    <p className="mt-1">
+                      {profile?.created_at 
+                        ? new Date(profile.created_at).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })
+                        : "Unknown"
+                      }
+                    </p>
+                  </div>
                 </div>
               </div>
-              <Button className="w-full">Follow</Button>
-            </div>
-          </aside>
-
-          {/* Main Feed */}
-          <section className="flex-1">
-            <div className="bg-card rounded-lg shadow-sm p-6 mb-6">
-              <h2 className="text-xl font-bold text-primary mb-6">
-                Posts by {profile.username}
-              </h2>
-              <PostsSection username={profile.username} />
-            </div>
-          </section>
-        </main>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
-    </>
+    </div>
   );
 }

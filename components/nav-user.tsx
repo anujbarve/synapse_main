@@ -147,6 +147,13 @@ export function NavUser({
                 </DropdownMenuItem>
               </Link>
 
+              <Link href={"/connections"}>
+                <DropdownMenuItem>
+                  <Settings />
+                  Connections
+                </DropdownMenuItem>
+              </Link>
+
               <Link href={"/settings"}>
                 <DropdownMenuItem>
                   <Settings />

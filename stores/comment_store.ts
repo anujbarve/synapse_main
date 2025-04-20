@@ -1,6 +1,7 @@
 // commentStore.ts
 import { create } from "zustand";
 import { createClient } from "@/utils/supabase/client";
+import { useNotificationStore } from "./notification_store";
 
 export interface Comment {
   id: number;
@@ -233,6 +234,54 @@ export const useCommentStore = create<CommentStore>((set, get) => ({
           };
         }
       });
+
+      // Create notifications
+      const { createNotification } = useNotificationStore.getState();
+
+      // 1. First, get the post details to notify the post owner
+      const { data: postData } = await supabase
+        .from("posts")
+        .select("user_id, title")
+        .eq("id", comment.post_id)
+        .single();
+      
+      // Create a short preview of the comment content (first 50 chars)
+      const contentPreview = comment.content.length > 50 
+        ? `${comment.content.substring(0, 50)}...` 
+        : comment.content;
+
+      // If comment is a reply to another comment, notify that comment's author
+      if (comment.parent_id) {
+        // Get parent comment details
+        const { data: parentComment } = await supabase
+          .from("comments")
+          .select("user_id, author:users!comments_user_id_fkey (username)")
+          .eq("id", comment.parent_id)
+          .single();
+
+        if (parentComment && parentComment.user_id !== comment.user_id) {
+          // Notify the parent comment author about the reply
+          await createNotification({
+            user_id: parentComment.user_id,
+            content: `${data.author.username} replied to your comment: "${contentPreview}"`,
+            is_public: false,
+            notification_type: 'comment_reply',
+            related_id: `post:${comment.post_id}|comment:${data.id}`
+          });
+        }
+      }
+
+      // Notify the post owner (if not the same as comment author)
+      if (postData && postData.user_id !== comment.user_id) {
+        await createNotification({
+          user_id: postData.user_id,
+          content: `${data.author.username} commented on your post "${postData.title}": "${contentPreview}"`,
+          is_public: true,
+          notification_type: 'post_comment',
+          related_id: `post:${comment.post_id}|comment:${data.id}`
+        });
+      }
+
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
     }
@@ -306,6 +355,28 @@ export const useCommentStore = create<CommentStore>((set, get) => ({
       if (userError) throw userError;
       if (!user) throw new Error("User not authenticated");
 
+      // Get the comment data before updating
+      const { data: commentData } = await supabase
+        .from("comments")
+        .select(`
+          id, 
+          user_id, 
+          content,
+          post_id,
+          author:users!comments_user_id_fkey (username)
+        `)
+        .eq("id", commentId)
+        .single();
+
+      if (!commentData) throw new Error("Comment not found");
+
+      // Get current user's username
+      const { data: userData } = await supabase
+        .from("users")
+        .select("username")
+        .eq("id", user.id)
+        .single();
+
       // Remove existing vote if any
       await supabase
         .from("comment_votes")
@@ -344,6 +415,25 @@ export const useCommentStore = create<CommentStore>((set, get) => ({
         ),
         loading: false,
       }));
+
+      // Create notification for upvotes only (not for downvotes)
+      if (voteType === "upvote" && commentData.user_id !== user.id) {
+        const { createNotification } = useNotificationStore.getState();
+        
+        // Create a short preview of the comment content
+        const contentPreview = commentData.content.length > 40 
+          ? `${commentData.content.substring(0, 40)}...` 
+          : commentData.content;
+
+        
+        await createNotification({
+          user_id: commentData.user_id,
+          content: `${userData?.username} upvoted your comment: "${contentPreview}"`,
+          is_public: true,
+          notification_type: 'comment_upvote',
+          related_id: `post:${commentData.post_id}|comment:${commentId}`
+        });
+      }
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
     }
