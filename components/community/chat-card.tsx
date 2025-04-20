@@ -725,13 +725,209 @@ const MessageItem: React.FC<MessageItemProps> = ({
     );
 };
 
+// Copy and paste the OnlineMembersPopover component below the CommunitySettingsDialog component
 
-// --- Online Members Popover Component (Unchanged from previous example) ---
-// Assuming the OnlineMembersPopover component provided earlier is used here without changes.
-// Make sure it's correctly imported or included in the same file if not separate.
-// Placeholder for brevity:
-const OnlineMembersPopover: React.FC<{ communityId: number }> = ({ communityId }) => {
-    // ... (Use the implementation from the previous code example) ...
-    // This component uses useCommunityPresenceStore, fetches members, etc.
-    return <Button variant="outline" size="sm">Members</Button>; // Replace with actual Popover
-};
+interface CommunityMember {
+  user_id: string;
+  users: {
+    username: string;
+    profile_picture: string | null;
+  };
+}
+
+export function OnlineMembersPopover({ communityId }: { communityId: number }) {
+  const [members, setMembers] = React.useState<CommunityMember[]>([]);
+  const { onlineCount, totalMembers, onlineMembers } = useCommunityPresence(communityId);
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  // Initialize presence
+  React.useEffect(() => {
+    setIsLoading(true);
+    // Ensure communityPresenceStore and initializePresence are correctly set up
+    const cleanup = useCommunityPresenceStore.getState().initializePresence(communityId);
+
+    return () => {
+      // Ensure cleanup is correctly set up in your store
+      useCommunityPresenceStore.getState().cleanup(communityId);
+    };
+  }, [communityId]);
+
+  // Fetch community members
+  React.useEffect(() => {
+    async function fetchMembers() {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('community_members')
+          .select('user_id, users(username, profile_picture)')
+          .eq('community_id', communityId);
+
+        if (data) {
+          setMembers(data);
+          setIsLoading(false);
+        }
+
+        if (error) throw error;
+      } catch (error) {
+        console.error('Failed to fetch community members', error);
+        setIsLoading(false);
+      }
+    }
+
+    fetchMembers();
+  }, [communityId]);
+
+  // Filtered and sorted members
+  const filteredMembers = React.useMemo(() => {
+    return members
+      .filter(member =>
+        member.users.username.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort((a, b) => {
+        const aOnline = onlineMembers[a.user_id];
+        const bOnline = onlineMembers[b.user_id];
+
+        if (aOnline && !bOnline) return -1;
+        if (!aOnline && bOnline) return 1;
+
+        return a.users.username.localeCompare(b.users.username);
+      });
+  }, [members, onlineMembers, searchTerm]);
+
+  // Render loading skeleton
+  const renderLoadingSkeleton = () => (
+    <div className="space-y-2 p-2">
+      {[...Array(4)].map((_, index) => (
+        <div
+          key={index}
+          className="flex items-center space-x-4 p-2 rounded-lg bg-muted/20 animate-pulse"
+        >
+          <div className="w-10 h-10 bg-muted/30 rounded-full"></div>
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-3/4 bg-muted/30"></div>
+            <div className="h-3 w-1/2 bg-muted/30"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className="flex items-center gap-2 px-4 py-2 rounded-md hover:bg-accent group relative w-fit" // Adjusted styling for better integration
+          aria-label="Online Members"
+        >
+          <Users className="w-5 h-5 group-hover:text-primary" />
+          <span className="text-sm font-medium">
+            {onlineCount} Online {/* Display only online count here */}
+          </span>
+           {/* Optional: Display total count next to label or inside popover */}
+           {/* <span className="text-xs text-muted-foreground">/ {totalMembers}</span> */}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-96 p-0">
+        <div className="p-4 border-b">
+          <div className="flex items-center space-x-2">
+            <h4 className="text-sm font-semibold flex-1">
+              Community Members
+            </h4>
+            <span className="text-xs text-muted-foreground">
+              {onlineCount} / {totalMembers}
+            </span>
+          </div>
+          <div className="mt-2 relative">
+            <input
+              type="text"
+              placeholder="Search members..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-3 py-2 border rounded-md text-sm
+              bg-background
+              focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          </div>
+        </div>
+
+        <div className="max-h-80 overflow-y-auto">
+          {isLoading ? (
+            renderLoadingSkeleton()
+          ) : filteredMembers.length === 0 ? (
+            <div className="text-center py-4 text-muted-foreground text-sm">
+              No members found
+            </div>
+          ) : (
+            <div className="divide-y">
+              {filteredMembers.map(member => {
+                const isOnline = onlineMembers[member.user_id];
+                return (
+                  <div
+                    key={member.user_id}
+                    className={`
+                      flex items-center p-3
+                      ${isOnline
+                        ? 'bg-green-50/50 dark:bg-green-950/30'
+                        : 'hover:bg-accent'}
+                      transition-colors group
+                      cursor-pointer
+                    `}
+                    onClick={() => {
+                      // Optional: Add action on member click
+                      // e.g., navigate to profile or open direct message
+                    }}
+                  >
+                    <div className="relative mr-4">
+                      <Avatar className={`
+                        w-10 h-10
+                        ring-2
+                        ${isOnline
+                          ? 'ring-green-500/50'
+                          : 'ring-muted-foreground/20'}
+                      `}>
+                        <AvatarImage
+                          src={member.users.profile_picture || undefined}
+                          alt={member.users.username}
+                          className="object-cover"
+                        />
+                        <AvatarFallback className="bg-primary/10 text-primary">
+                          {member.users.username.slice(0,2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      {isOnline && (
+                        <span
+                          className="absolute bottom-0 right-0 w-3 h-3
+                          bg-green-500 border-2 border-background rounded-full
+                          animate-pulse"
+                        ></span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate group-hover:text-primary">
+                        {member.users.username}
+                      </p>
+                      <p className={`
+                        text-xs truncate
+                        ${isOnline
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-muted-foreground'}
+                      `}>
+                        {isOnline ? 'Online' : 'Offline'}
+                      </p>
+                    </div>
+                    {/* Optional: Add a MoreHorizontal icon or button per member */}
+                    {/* <MoreHorizontal
+                      className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                    /> */}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
