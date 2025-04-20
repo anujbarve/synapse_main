@@ -32,6 +32,16 @@ import { useSingleCommunityStore } from "@/stores/single_community_store";
 import { useChannelStore } from "@/stores/channel_store"; // Import the channel store
 import { CommunitySettingsDialog } from "./community/community-settings";
 import { NavRooms } from "./nav-rooms";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Ban } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 
 const data = {
   navMain: [
@@ -55,6 +65,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     fetchChannels,
     loading: channelsLoading,
   } = useChannelStore();
+
+
+
+  const router = useRouter();
+  const { moderationStatus, checkModStatus, clearModStatus } = useSingleCommunityStore();
+  const [showBanDialog, setShowBanDialog] = React.useState(false);
 
   useEffect(() => {
     if (user?.id) {
@@ -92,106 +108,201 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const transformChannelsToNavRooms = () => {
     return channels.map((channel) => {
       let channelIcon;
-
+  
       // Assign icons based on channel type
       switch (channel.type) {
         case "Text":
-          channelIcon = Book;  // Use Book for text-based channels
+          channelIcon = Book;
           break;
         case "Voice":
-          channelIcon = Mic;   // Use Mic for voice channels
+          channelIcon = Mic;
           break;
         case "Video":
-          channelIcon = Video; // Use Video for video channels
+          channelIcon = Video;
           break;
         default:
-          channelIcon = Book;  // Default to Book if type is unrecognized
+          channelIcon = Book;
           break;
       }
-
+  
+      // Update the URL format to include communityId for non-text channels
+      const channelUrl = channel.type === "Text" 
+        ? `/community/${currentCommunity}/chat/${channel.id}` 
+        : `/community/${currentCommunity}/room/${channel.id}`;
+  
       return {
         name: channel.name,
-        url: channel.type === "Text" ? `/community/${currentCommunity}/chat/${channel.id}` : `/room/${channel.id}`,
-        icon: channelIcon,  // Assign the icon here
+        url: channelUrl,
+        icon: channelIcon,
+        type: channel.type, // Add type to help with styling/behavior
       };
     });
   };
 
+  useEffect(() => {
+    if (user?.id && currentCommunity) {
+      checkModStatus(user.id, currentCommunity.toString());
+    }
+
+    return () => {
+      clearModStatus();
+    };
+  }, [user?.id, currentCommunity,clearModStatus, checkModStatus]);
+
+  // Add this useEffect to show the ban dialog
+  useEffect(() => {
+    if (moderationStatus.isBanned) {
+      setShowBanDialog(true);
+    }
+  }, [moderationStatus.isBanned]);
+
+  // Add this handler
+  const handleReturnToDashboard = () => {
+    router.push('/dashboard');
+    setShowBanDialog(false);
+  };
+
+  
+  // Add the ban dialog component
+  const BanDialog = () => (
+    <Dialog open={showBanDialog} onOpenChange={setShowBanDialog}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-destructive">
+            <Ban className="h-5 w-5" />
+            Access Denied
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <p className="text-sm">
+            You have been banned from{" "}
+            <span className="font-semibold">
+              {moderationStatus.communityName || "this community"}
+            </span>
+          </p>
+          {moderationStatus.banReason && (
+            <div className="rounded-md bg-muted p-3">
+              <p className="text-xs font-medium">Reason:</p>
+              <p className="text-sm">{moderationStatus.banReason}</p>
+            </div>
+          )}
+          {moderationStatus.banDate && (
+            <p className="text-xs text-muted-foreground">
+              Banned on: {new Date(moderationStatus.banDate).toLocaleDateString()}
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button 
+            variant="destructive" 
+            onClick={handleReturnToDashboard}
+            className="w-full"
+          >
+            Return to Dashboard
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
 
   return (
-    <Sidebar variant="inset" {...props}>
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <a href="#">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <Lightbulb className="size-4" />
-                </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Synapse Inc</span>
-                  <span className="truncate text-xs">Enterprise</span>
-                </div>
-              </a>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
-      {currentCommunity === 0 ? (
-        <SidebarContent>
-          <NavMain items={data.navMain} />
-          <NavProjects projects={communityProjects} loading={loading} />
-        </SidebarContent>
-      ) : (
-        <SidebarContent>
-          <NavMain
-            items={[
-              {
-                title: "Back to Dashboard",
-                url: "/dashboard",
-                icon: StepBack,
-                isActive: true,
-                items: [],
-              },
-            ]}
-          />
-          <NavRooms rooms={transformChannelsToNavRooms()} loading={channelsLoading} />
-        </SidebarContent>
-      )}
-
-      {typeof window !== "undefined" &&
-        currentCommunity > 0 &&
-        isMemberOfCommunity(currentCommunity) && (
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton onClick={handleDialogOpen}>
-                    <Settings2 />
-                    Community Settings
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-            {/* External Dialog Component */}
-            <CommunitySettingsDialog
-              community_id={currentCommunity}
-              user_id={user?.id}
-              isOpen={isDialogOpen}
-              onClose={handleDialogClose}
+    <>
+      <Sidebar variant="inset" {...props}>
+        <SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton size="lg" asChild>
+                <a href="#">
+                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                    <Lightbulb className="size-4" />
+                  </div>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">Synapse Inc</span>
+                    <span className="truncate text-xs">Enterprise</span>
+                  </div>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
+        
+        {currentCommunity === 0 ? (
+          <SidebarContent>
+            <NavMain items={data.navMain} />
+            <NavProjects projects={communityProjects} loading={loading} />
+          </SidebarContent>
+        ) : (
+          <SidebarContent>
+            <NavMain
+              items={[
+                {
+                  title: "Back to Dashboard",
+                  url: "/dashboard",
+                  icon: StepBack,
+                  isActive: true,
+                  items: [],
+                },
+              ]}
             />
-          </SidebarGroup>
+            {/* Only show rooms if user is not banned */}
+            {!moderationStatus.isBanned && (
+              <NavRooms 
+                rooms={transformChannelsToNavRooms()} 
+                loading={channelsLoading} 
+              />
+            )}
+            {/* Show ban message in sidebar */}
+            {moderationStatus.isBanned && (
+              <div className="px-4 py-3 mt-4">
+                <div className="flex items-center gap-2 text-destructive">
+                  <Ban className="h-4 w-4" />
+                  <span className="text-sm font-medium">Access Restricted</span>
+                </div>
+              </div>
+            )}
+          </SidebarContent>
         )}
-      <SidebarFooter>
-        <NavUser
-          user={{
-            id: user?.id as string,
-            name: user?.username as string,
-            email: user?.email as string,
-            avatar: user?.profile_picture as string,
-          }}
-        />
-      </SidebarFooter>
-    </Sidebar>
+
+        {/* Only show community settings if user is not banned */}
+        {typeof window !== "undefined" &&
+          currentCommunity > 0 &&
+          isMemberOfCommunity(currentCommunity) &&
+          !moderationStatus.isBanned && (
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton onClick={handleDialogOpen}>
+                      <Settings2 />
+                      Community Settings
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+              <CommunitySettingsDialog
+                community_id={currentCommunity}
+                user_id={user?.id}
+                isOpen={isDialogOpen}
+                onClose={handleDialogClose}
+              />
+            </SidebarGroup>
+          )}
+
+        <SidebarFooter>
+          <NavUser
+            user={{
+              id: user?.id as string,
+              name: user?.username as string,
+              email: user?.email as string,
+              avatar: user?.profile_picture as string,
+            }}
+          />
+        </SidebarFooter>
+      </Sidebar>
+      
+      {/* Keep the ban dialog */}
+      <BanDialog />
+    </>
   );
 }

@@ -14,9 +14,13 @@ import { MediaRoom } from "@/components/livekit/mediaroom";
 export default async function Page({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string,roomId: string }>;
 }) {
-  const slug = (await params).id;
+  const communityId = (await params).id;
+  const roomId = (await params).roomId; // Assuming roomId is part of the params
+
+  console.log("Community ID:", communityId);
+  console.log("Room ID:", roomId);
 
 
   return (
@@ -44,7 +48,7 @@ export default async function Page({
       <div className="grid grid-cols-1 h-full w-full p-4 pt-0">
         {/* MediaRoom component - displays the video/audio room */}
         <div className="col-span-1 w-full rounded-xl">
-          <MediaRoom chatId={slug} video={false} audio={false} />
+          <MediaRoom chatId={roomId} communityId={communityId} video={false} audio={false} />
         </div>
       </div>
     </>

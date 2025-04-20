@@ -1,4 +1,4 @@
-import { ChatCard } from "@/components/ui/chat-card";
+import { ChatCard } from "@/components/community/chat-card";
 
 export default async function Page({
   params,

@@ -4,13 +4,13 @@ import { useRoomContext } from "@livekit/components-react";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
 import { Track } from "livekit-client";
-import { 
-  Mic, 
-  MicOff, 
-  Video, 
-  VideoOff, 
-  PhoneOff, 
-  ScreenShare, 
+import {
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  PhoneOff,
+  ScreenShare,
   ScreenShareOff,
   MessageSquare,
   Users,
@@ -19,7 +19,7 @@ import {
   StopCircle,
   CirclePlay,
 } from "lucide-react";
-import { 
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -27,27 +27,30 @@ import {
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils"; // Add this import for the cn utility
+import { toast } from "sonner";
 
 interface MediaControlsProps {
   onToggleChat: () => void;
   onToggleParticipants: () => void;
   onToggleSettings: () => void;
-  activePanel?: string | null; // Add this prop to receive the active panel state
+  activePanel?: string | null;
   className?: string;
   isRecording?: boolean;
   onStartRecording?: () => void;
   onStopRecording?: () => void;
+  isMuted?: boolean;
 }
 
-export function MediaControls({ 
-    onToggleChat, 
-    onToggleParticipants,
-    onToggleSettings,
-    activePanel = null, // Default to null if not provided
-    className,
-    isRecording = false,
-    onStartRecording,
-    onStopRecording
+export function MediaControls({
+  onToggleChat,
+  onToggleParticipants,
+  onToggleSettings,
+  activePanel = null, // Default to null if not provided
+  className,
+  isRecording = false,
+  onStartRecording,
+  onStopRecording,
+  isMuted = false,
 }: MediaControlsProps) {
   const room = useRoomContext();
   const [isCameraEnabled, setIsCameraEnabled] = useState(false);
@@ -59,73 +62,83 @@ export function MediaControls({
     const checkViewport = () => {
       setIsMobile(window.innerWidth < 640);
     };
-    
+
     // Check initially
     checkViewport();
-    
+
     // Add resize listener
-    window.addEventListener('resize', checkViewport);
-    
+    window.addEventListener("resize", checkViewport);
+
     return () => {
-      window.removeEventListener('resize', checkViewport);
+      window.removeEventListener("resize", checkViewport);
     };
   }, []);
-  
+
   useEffect(() => {
     if (room.localParticipant) {
       const camEnabled = room.localParticipant.isCameraEnabled;
       const micEnabled = room.localParticipant.isMicrophoneEnabled; // Remove the negation
       setIsCameraEnabled(camEnabled);
       setIsMicEnabled(micEnabled);
-      
+
       // Check if screen share is active
-      const screenSharePub = room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
+      const screenSharePub = room.localParticipant.getTrackPublication(
+        Track.Source.ScreenShare
+      );
       setIsScreenShareEnabled(!!screenSharePub && !screenSharePub.isMuted);
     }
   }, [room.localParticipant]);
-  
+
   // Listen for track publication changes
   useEffect(() => {
     if (!room.localParticipant) return;
-    
+
     const handleTrackPublished = () => {
       setIsCameraEnabled(room.localParticipant.isCameraEnabled);
       setIsMicEnabled(room.localParticipant.isMicrophoneEnabled);
-      
+
       // Check if screen share is active
-      const screenSharePub = room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
+      const screenSharePub = room.localParticipant.getTrackPublication(
+        Track.Source.ScreenShare
+      );
       setIsScreenShareEnabled(!!screenSharePub && !screenSharePub.isMuted);
     };
-    
-    room.localParticipant.on('trackPublished', handleTrackPublished);
-    room.localParticipant.on('trackUnpublished', handleTrackPublished);
-    room.localParticipant.on('trackMuted', handleTrackPublished);
-    room.localParticipant.on('trackUnmuted', handleTrackPublished);
-    
+
+    room.localParticipant.on("trackPublished", handleTrackPublished);
+    room.localParticipant.on("trackUnpublished", handleTrackPublished);
+    room.localParticipant.on("trackMuted", handleTrackPublished);
+    room.localParticipant.on("trackUnmuted", handleTrackPublished);
+
     return () => {
-      room.localParticipant.off('trackPublished', handleTrackPublished);
-      room.localParticipant.off('trackUnpublished', handleTrackPublished);
-      room.localParticipant.off('trackMuted', handleTrackPublished);
-      room.localParticipant.off('trackUnmuted', handleTrackPublished);
+      room.localParticipant.off("trackPublished", handleTrackPublished);
+      room.localParticipant.off("trackUnpublished", handleTrackPublished);
+      room.localParticipant.off("trackMuted", handleTrackPublished);
+      room.localParticipant.off("trackUnmuted", handleTrackPublished);
     };
   }, [room.localParticipant]);
-  
+
   const toggleCamera = async () => {
     try {
+      if (isMuted) {
+        toast.error("Camera controls are disabled while you are muted");
+        return;
+      }
       // Get current state
       const currentState = isCameraEnabled;
-      
+
       // Update UI immediately for responsiveness
       setIsCameraEnabled(!currentState);
-      
+
       // Actually toggle the camera
       await room.localParticipant.setCameraEnabled(!currentState);
-      
+
       // Force a re-publish if turning on
       if (!currentState) {
         // Small delay to ensure the track is created
         setTimeout(async () => {
-          const cameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera);
+          const cameraTrack = room.localParticipant.getTrackPublication(
+            Track.Source.Camera
+          );
           if (cameraTrack && cameraTrack.track) {
             // Force a re-publish by muting and unmuting
             await cameraTrack.mute();
@@ -139,23 +152,29 @@ export function MediaControls({
       console.error("Error toggling camera:", e);
     }
   };
-  
+
   const toggleMic = async () => {
     try {
+      if (isMuted) {
+        toast.error("Microphone controls are disabled while you are muted");
+        return;
+      }
       // Get current state - IMPORTANT: Fix the inverted logic
       const currentState = room.localParticipant.isMicrophoneEnabled;
-      
+
       // Update UI immediately for responsiveness
       setIsMicEnabled(!currentState);
-      
+
       // Actually toggle the microphone
       await room.localParticipant.setMicrophoneEnabled(!currentState);
-      
+
       // Force a re-publish if turning on
       if (!currentState) {
         // Small delay to ensure the track is created
         setTimeout(async () => {
-          const micTrack = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+          const micTrack = room.localParticipant.getTrackPublication(
+            Track.Source.Microphone
+          );
           if (micTrack && micTrack.track) {
             // Force a re-publish by muting and unmuting
             await micTrack.mute();
@@ -169,8 +188,13 @@ export function MediaControls({
       console.error("Error toggling microphone:", e);
     }
   };
-  
+
   const toggleScreenShare = async () => {
+    if (isMuted) {
+      toast.error("Screen sharing is disabled while you are muted");
+      return;
+    }
+
     try {
       if (isScreenShareEnabled) {
         await room.localParticipant.setScreenShareEnabled(false);
@@ -182,110 +206,118 @@ export function MediaControls({
       console.error("Error toggling screen share:", e);
     }
   };
-  
+
   const disconnect = () => {
     room.disconnect();
     window.location.href = "/";
   };
-  
+
   // Function to handle mobile menu button click
   const handleMobileMenuClick = () => {
     // Toggle between chat, participants, and settings
     if (!activePanel) {
       onToggleChat();
-    } else if (activePanel === 'chat') {
+    } else if (activePanel === "chat") {
       onToggleChat(); // Turn off chat
       onToggleParticipants(); // Turn on participants
-    } else if (activePanel === 'participants') {
+    } else if (activePanel === "participants") {
       onToggleParticipants(); // Turn off participants
       onToggleSettings(); // Turn on settings
     } else {
       onToggleSettings(); // Turn off settings
     }
   };
-  
+
   return (
     <TooltipProvider>
-      <div className={cn(
-        "flex items-center gap-2 p-2 bg-background rounded-xl border",
-        "shadow-sm",
-        className
-      )}>
+      <div
+        className={cn(
+          "flex items-center gap-2 p-2 bg-background rounded-xl border",
+          "shadow-sm",
+          className
+        )}
+      >
         <div className="flex items-center gap-1 sm:gap-2">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Toggle 
-                pressed={isMicEnabled} 
+              <Toggle
+                pressed={isMicEnabled}
                 onPressedChange={toggleMic}
+                disabled={isMuted}  
                 aria-label="Toggle microphone"
                 className={cn(
                   "data-[state=on]:bg-accent data-[state=on]:text-accent-foreground",
                   "hover:bg-accent/50"
                 )}
               >
-                {isMicEnabled ? 
-                  <Mic className="h-4 w-4" /> : 
+                {isMicEnabled ? (
+                  <Mic className="h-4 w-4" />
+                ) : (
                   <MicOff className="h-4 w-4 text-destructive" />
-                }
+                )}
               </Toggle>
             </TooltipTrigger>
             <TooltipContent>
-              {isMicEnabled ? 'Mute microphone' : 'Unmute microphone'}
+            {isMuted ? 'Microphone controls disabled' : (isMicEnabled ? 'Mute microphone' : 'Unmute microphone')}
             </TooltipContent>
           </Tooltip>
-          
+
           <Tooltip>
             <TooltipTrigger asChild>
-              <Toggle 
-                pressed={isCameraEnabled} 
+              <Toggle
+                pressed={isCameraEnabled}
                 onPressedChange={toggleCamera}
+                disabled={isMuted}
                 aria-label="Toggle camera"
                 className={cn(
                   "data-[state=on]:bg-accent data-[state=on]:text-accent-foreground",
                   "hover:bg-accent/50"
                 )}
               >
-                {isCameraEnabled ? 
-                  <Video className="h-4 w-4" /> : 
+                {isCameraEnabled ? (
+                  <Video className="h-4 w-4" />
+                ) : (
                   <VideoOff className="h-4 w-4 text-destructive" />
-                }
+                )}
               </Toggle>
             </TooltipTrigger>
             <TooltipContent>
-              {isCameraEnabled ? 'Turn off camera' : 'Turn on camera'}
+            {isMuted ? 'Camera controls disabled' : (isCameraEnabled ? 'Turn off camera' : 'Turn on camera')}
             </TooltipContent>
           </Tooltip>
-          
+
           <Tooltip>
             <TooltipTrigger asChild>
-              <Toggle 
-                pressed={isScreenShareEnabled} 
+              <Toggle
+                pressed={isScreenShareEnabled}
                 onPressedChange={toggleScreenShare}
+                disabled={isMuted}
                 aria-label="Toggle screen share"
                 className={cn(
                   "data-[state=on]:bg-accent data-[state=on]:text-accent-foreground",
                   "hover:bg-accent/50"
                 )}
               >
-                {isScreenShareEnabled ? 
-                  <ScreenShare className="h-4 w-4 text-primary" /> : 
+                {isScreenShareEnabled ? (
+                  <ScreenShare className="h-4 w-4 text-primary" />
+                ) : (
                   <ScreenShareOff className="h-4 w-4" />
-                }
+                )}
               </Toggle>
             </TooltipTrigger>
             <TooltipContent>
-              {isScreenShareEnabled ? 'Stop sharing screen' : 'Share screen'}
+              {isMuted ? 'Screen Share controls disabled' : (isScreenShareEnabled ? "Stop sharing screen" : "Share screen")}
             </TooltipContent>
           </Tooltip>
         </div>
-        
+
         {!isMobile && <Separator orientation="vertical" className="h-6 mx-1" />}
-        
+
         <div className="flex items-center gap-1 sm:gap-2">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 onClick={onToggleChat}
                 className={cn(
@@ -298,11 +330,11 @@ export function MediaControls({
             </TooltipTrigger>
             <TooltipContent>Chat</TooltipContent>
           </Tooltip>
-          
+
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 onClick={onToggleParticipants}
                 className={cn(
@@ -317,37 +349,38 @@ export function MediaControls({
           </Tooltip>
 
           <Tooltip>
-    <TooltipTrigger asChild>
-      <Toggle 
-        pressed={isRecording} 
-        onPressedChange={() => {
-          if (isRecording) {
-            onStopRecording?.();
-          } else {
-            onStartRecording?.();
-          }
-        }}
-        aria-label="Toggle recording"
-        className={cn(
-          "data-[state=on]:bg-accent data-[state=on]:text-accent-foreground",
-          "hover:bg-accent/50"
-        )}
-      >
-        {isRecording ? 
-          <StopCircle className="h-4 w-4 text-destructive" /> : 
-          <CirclePlay className="h-4 w-4" />
-        }
-      </Toggle>
-    </TooltipTrigger>
-    <TooltipContent>
-      {isRecording ? 'Stop recording' : 'Start recording'}
-    </TooltipContent>
-  </Tooltip>
-          
+            <TooltipTrigger asChild>
+              <Toggle
+                pressed={isRecording}
+                onPressedChange={() => {
+                  if (isRecording) {
+                    onStopRecording?.();
+                  } else {
+                    onStartRecording?.();
+                  }
+                }}
+                aria-label="Toggle recording"
+                className={cn(
+                  "data-[state=on]:bg-accent data-[state=on]:text-accent-foreground",
+                  "hover:bg-accent/50"
+                )}
+              >
+                {isRecording ? (
+                  <StopCircle className="h-4 w-4 text-destructive" />
+                ) : (
+                  <CirclePlay className="h-4 w-4" />
+                )}
+              </Toggle>
+            </TooltipTrigger>
+            <TooltipContent>
+              {isRecording ? "Stop recording" : "Start recording"}
+            </TooltipContent>
+          </Tooltip>
+
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 onClick={onToggleSettings}
                 className={cn(
@@ -361,13 +394,13 @@ export function MediaControls({
             <TooltipContent>Settings</TooltipContent>
           </Tooltip>
         </div>
-        
+
         {!isMobile && <Separator orientation="vertical" className="h-6 mx-1" />}
-        
+
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               size={isMobile ? "icon" : "sm"}
               onClick={disconnect}
             >
@@ -383,13 +416,9 @@ export function MediaControls({
           </TooltipTrigger>
           <TooltipContent>Leave call</TooltipContent>
         </Tooltip>
-        
+
         {isMobile && (
-          <Button 
-            variant="outline" 
-            size="icon"
-            onClick={handleMobileMenuClick}
-          >
+          <Button variant="outline" size="icon" onClick={handleMobileMenuClick}>
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         )}

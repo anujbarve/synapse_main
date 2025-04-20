@@ -20,12 +20,39 @@ interface VideoRoomProps {
   roomName: string;
   initialVideo?: boolean;
   initialAudio?: boolean;
+  isBanned?: boolean;
+  isMuted?: boolean;
+  communityId?: string;
+  banReason?: string | null;
+  muteReason?: string | null;
 }
+
+const BannedScreen = ({ reason }: { reason?: string | null }) => (
+  <div className="flex flex-col items-center justify-center h-full bg-background">
+    <div className="text-center p-8 max-w-md">
+      <h2 className="text-2xl font-bold text-red-500 mb-4">Access Restricted</h2>
+      <p className="text-muted-foreground mb-2">
+        You have been banned from this community.
+      </p>
+      {reason && (
+        <p className="text-sm text-muted-foreground italic">
+          Reason: {reason}
+        </p>
+      )}
+      <p className="text-sm text-muted-foreground mt-4">
+        Please contact the community administrators for more information.
+      </p>
+    </div>
+  </div>
+);
 
 export function VideoRoom({
   roomName,
   initialVideo = false,
   initialAudio = false,
+  isBanned = false,
+  isMuted = false,
+  banReason,
 }: VideoRoomProps) {
   const room = useRoomContext();
   const participants = useParticipants();
@@ -223,42 +250,21 @@ export function VideoRoom({
     };
   }, []);
 
-  // Add an effect to handle initial device state
-  useEffect(() => {
+   // Modify the initial device setup effect to respect muted state
+   useEffect(() => {
     if (!room.localParticipant) return;
 
     const setupInitialState = async () => {
       try {
-        // Set camera state
-        if (initialVideo !== room.localParticipant.isCameraEnabled) {
-          await room.localParticipant.setCameraEnabled(initialVideo);
-        }
-
-        // Set microphone state
-        if (initialAudio !== room.localParticipant.isMicrophoneEnabled) {
-          await room.localParticipant.setMicrophoneEnabled(initialAudio);
-        }
-
-        // Force a re-publish of tracks to ensure they're visible
-        if (initialVideo) {
-          const cameraTrack = room.localParticipant.getTrackPublication(
-            Track.Source.Camera
-          );
-          if (cameraTrack && cameraTrack.track) {
-            await cameraTrack.mute();
-            await new Promise((resolve) => setTimeout(resolve, 100));
-            await cameraTrack.unmute();
+        if (isMuted) {
+          await room.localParticipant.setCameraEnabled(false);
+          await room.localParticipant.setMicrophoneEnabled(false);
+        } else {
+          if (initialVideo !== room.localParticipant.isCameraEnabled) {
+            await room.localParticipant.setCameraEnabled(initialVideo);
           }
-        }
-
-        if (initialAudio) {
-          const micTrack = room.localParticipant.getTrackPublication(
-            Track.Source.Microphone
-          );
-          if (micTrack && micTrack.track) {
-            await micTrack.mute();
-            await new Promise((resolve) => setTimeout(resolve, 100));
-            await micTrack.unmute();
+          if (initialAudio !== room.localParticipant.isMicrophoneEnabled) {
+            await room.localParticipant.setMicrophoneEnabled(initialAudio);
           }
         }
       } catch (e) {
@@ -266,13 +272,9 @@ export function VideoRoom({
       }
     };
 
-    // Add a slight delay to ensure room is fully initialized
     const timer = setTimeout(setupInitialState, 1000);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [room.localParticipant, initialVideo, initialAudio]);
+    return () => clearTimeout(timer);
+  }, [room.localParticipant, initialVideo, initialAudio, isMuted]);
 
   useEffect(() => {
     // LiveKit automatically handles track subscriptions
@@ -385,43 +387,6 @@ export function VideoRoom({
     };
   }, [participants, layout]);
 
-  // Add an effect to force camera and microphone activation on room join
-  useEffect(() => {
-    if (!room.localParticipant) return;
-
-    const forceMediaActivation = async () => {
-      try {
-        // Get current states
-        const isCameraEnabled = room.localParticipant.isCameraEnabled;
-        const isMicEnabled = !room.localParticipant.isMicrophoneEnabled;
-
-        // If camera should be on but isn't working properly
-        if (isCameraEnabled) {
-          // Toggle off and on to force republish
-          await room.localParticipant.setCameraEnabled(false);
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          await room.localParticipant.setCameraEnabled(true);
-        }
-
-        // If mic should be on but isn't working properly
-        if (isMicEnabled) {
-          // Toggle off and on to force republish
-          await room.localParticipant.setMicrophoneEnabled(false);
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          await room.localParticipant.setMicrophoneEnabled(true);
-        }
-      } catch (e) {
-        console.error("Error forcing media activation:", e);
-      }
-    };
-
-    // Run once after a delay to ensure room is fully connected
-    const timer = setTimeout(forceMediaActivation, 2000);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [room.localParticipant]);
 
   const togglePanel = (panel: string) => {
     if (activePanel === panel) {
@@ -438,6 +403,10 @@ export function VideoRoom({
       }
     }
   };
+
+  if (isBanned) {
+    return <BannedScreen reason={banReason} />;
+  }
 
   return (
     <div className="flex flex-col h-full w-full relative">
@@ -474,14 +443,15 @@ export function VideoRoom({
 
           {/* Controls */}
           <div className="p-2 flex justify-center">
-            <MediaControls
-              onToggleChat={() => togglePanel("chat")}
+          <MediaControls
+              onToggleChat={() => !isMuted && togglePanel("chat")}
               onToggleParticipants={() => togglePanel("participants")}
               onToggleSettings={() => togglePanel("settings")}
               activePanel={activePanel}
               isRecording={isRecording}
-              onStartRecording={handleStartRecording}
+              onStartRecording={!isMuted ? handleStartRecording : undefined}
               onStopRecording={handleStopRecording}
+              isMuted={isMuted}
               className="rounded-xl"
             />
           </div>

@@ -10,9 +10,10 @@ import { cn } from "@/lib/utils";
 
 interface RoomSettingsProps {
   isOpen?: boolean;
+  isMuted?: boolean;
 }
 
-export function RoomSettings({ isOpen = true }: RoomSettingsProps) {
+export function RoomSettings({ isOpen = true, isMuted = false }: RoomSettingsProps) {
   const room = useRoomContext();
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
@@ -174,6 +175,19 @@ export function RoomSettings({ isOpen = true }: RoomSettingsProps) {
       console.error("Error applying settings:", e);
     }
   };
+
+  if (isMuted) {
+    return (
+      <Card className="flex flex-col h-full">
+        <CardContent className="flex items-center justify-center h-full">
+          <div className="text-center text-muted-foreground p-4">
+            <p>Device settings are disabled while you are muted.</p>
+            <p className="text-sm mt-2">Please contact the room administrator for assistance.</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
   
   return (
     <Card className="flex flex-col h-full">

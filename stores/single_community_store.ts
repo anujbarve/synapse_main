@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { createClient } from "@/utils/supabase/client";
 import { useReputationStore } from "./reputation_store";
+import { toast } from "sonner";
+import ModeratedMembersList from "@/components/community/moderate-members-list";
 
 interface Community {
   id: number;
@@ -21,12 +23,36 @@ interface CommunityMember {
   joined_at: string | null;
 }
 
+interface ModStatus {
+  isBanned: boolean;
+  isMuted: boolean;
+  banReason?: string | null;
+  muteReason?: string | null;
+  banDate?: string | null;
+  muteDate?: string | null;
+  communityName?: string | null; // Add this
+}
+
+interface ModeratedMember {
+  id: number;
+  user_id: string;
+  actioned_at: string;
+  details: string | null;
+  users: {
+    id: string;
+    username: string;
+    profile_picture: string | null;
+  };
+}
+
+
 interface CommunityStore {
   community: Community | null;
   members: CommunityMember[];
   currentCommunity: number;
   loading: boolean;
   error: string | null;
+  moderationStatus: ModStatus;
 
   setCurrentCommunity: (community_id: number) => Promise<void>;
   fetchCommunityData: (communityId: string) => Promise<void>;
@@ -61,6 +87,24 @@ interface CommunityStore {
     communityData: Omit<Community, 'id' | 'created_at' | 'updated_at'>,
     userId: string
   ) => Promise<Community | null>;
+
+  checkModStatus: (userId: string, communityId: string) => Promise<ModStatus>;
+  clearModStatus: () => void;
+
+  unbanMember: (
+    communityId: string,
+    userId: string,
+  ) => Promise<void>;
+  
+  unmuteMember: (
+    communityId: string,
+    userId: string,
+  ) => Promise<void>;
+
+  fetchModeratedMembers: (communityId: string) => Promise<{
+    bannedMembers: ModeratedMember[];
+    mutedMembers: ModeratedMember[];
+  }>;
 }
 
 export const useSingleCommunityStore = create<CommunityStore>((set, get) => ({
@@ -69,6 +113,10 @@ export const useSingleCommunityStore = create<CommunityStore>((set, get) => ({
   currentCommunity: 0,
   loading: false,
   error: null,
+  moderationStatus: {
+    isBanned: false,
+    isMuted: false,
+  },
 
   setCurrentCommunity: async (community_id) => {
     set({ 
@@ -408,14 +456,6 @@ export const useSingleCommunityStore = create<CommunityStore>((set, get) => ({
     set({ loading: true, error: null });
 
     try {
-      // Remove community membership
-      const { error } = await supabase
-        .from("community_members")
-        .delete()
-        .eq("community_id", parseInt(communityId))
-        .eq("user_id", userId);
-
-      if (error) throw new Error(error.message);
 
       // Log moderation action
       await supabase.from("moderation_logs").insert({
@@ -460,4 +500,192 @@ export const useSingleCommunityStore = create<CommunityStore>((set, get) => ({
       });
     }
   },
+
+  
+  clearModStatus: () => {
+    set({
+      moderationStatus: {
+        isBanned: false,
+        isMuted: false,
+      }
+    });
+  },
+
+  checkModStatus: async (userId: string, communityId: string) => {
+    const supabase = createClient();
+    
+    try {
+      // Check for active bans
+      const { data: banData, error: banError } = await supabase
+        .from("moderation_logs")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("community_id", communityId)
+        .eq("action", "Ban")
+        .order('actioned_at', { ascending: false }) // Changed from created_at to actioned_at
+        .limit(1);
+
+      if (banError) throw banError;
+
+      // Check for active mutes
+      const { data: muteData, error: muteError } = await supabase
+        .from("moderation_logs")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("community_id", communityId)
+        .eq("action", "Mute")
+        .order('actioned_at', { ascending: false }) // Changed from created_at to actioned_at
+        .limit(1);
+
+      if (muteError) throw muteError;
+
+      const modStatus: ModStatus = {
+        isBanned: banData && banData.length > 0,
+        isMuted: muteData && muteData.length > 0,
+        banReason: banData?.[0]?.details,
+        muteReason: muteData?.[0]?.details,
+        banDate: banData?.[0]?.actioned_at, // Changed from created_at to actioned_at
+        muteDate: muteData?.[0]?.actioned_at, // Changed from created_at to actioned_at
+      };
+
+      set({ moderationStatus: modStatus });
+
+      console.log(modStatus);
+
+      // Show appropriate toast notifications
+      if (modStatus.isBanned) {
+        toast.error(
+          `You have been banned from this community${modStatus.banReason ? `: ${modStatus.banReason}` : ''}`,
+          {
+            duration: 5000,
+            description: "Contact community administrators for more information."
+          }
+        );
+      } else if (modStatus.isMuted) {
+        toast.warning(
+          `You have been muted in this community${modStatus.muteReason ? `: ${modStatus.muteReason}` : ''}`,
+          {
+            duration: 5000,
+            description: "You can still view content but cannot participate in discussions."
+          }
+        );
+      }
+
+      return modStatus;
+    } catch (error) {
+      console.error("Error checking moderation status:", error);
+      toast.error("Error checking community access status");
+      return {
+        isBanned: false,
+        isMuted: false,
+      };
+    }
+  },
+
+  unbanMember: async (communityId, userId) => {
+    const supabase = createClient();
+    set({ loading: true, error: null });
+  
+    try {
+      // Delete the ban log
+      const { error } = await supabase
+        .from("moderation_logs")
+        .delete()
+        .eq("community_id", parseInt(communityId))
+        .eq("user_id", userId)
+        .eq("action", "Ban");
+  
+      if (error) throw error;
+
+      
+      set({ loading: false });
+      toast.success("Member has been unbanned");
+    } catch (error) {
+      console.error("Error unbanning member:", error);
+      set({ 
+        error: (error as Error).message, 
+        loading: false 
+      });
+      toast.error("Failed to unban member");
+    }
+  },
+
+  unmuteMember: async (communityId, userId) => {
+    const supabase = createClient();
+    set({ loading: true, error: null });
+  
+    try {
+      // Delete the mute log
+      const { error } = await supabase
+        .from("moderation_logs")
+        .delete()
+        .eq("community_id", parseInt(communityId))
+        .eq("user_id", userId)
+        .eq("action", "Mute");
+  
+      if (error) throw error;
+      
+      
+      set({ loading: false });
+      toast.success("Member has been unmuted");
+    } catch (error) {
+      console.error("Error unmuting member:", error);
+      set({ 
+        error: (error as Error).message, 
+        loading: false 
+      });
+      toast.error("Failed to unmute member");
+    }
+  },
+
+  fetchModeratedMembers: async (communityId) => {
+    const supabase = createClient();
+    
+    try {
+      // Fetch banned members
+      const { data: bannedData, error: bannedError } = await supabase
+        .from("moderation_logs")
+        .select(`
+          *,
+          users:user_id (
+            id,
+            username,
+            profile_picture
+          )
+        `)
+        .eq("community_id", communityId)
+        .eq("action", "Ban")
+        .order('actioned_at', { ascending: false });
+
+      if (bannedError) throw bannedError;
+
+      // Fetch muted members
+      const { data: mutedData, error: mutedError } = await supabase
+        .from("moderation_logs")
+        .select(`
+          *,
+          users:user_id (
+            id,
+            username,
+            profile_picture
+          )
+        `)
+        .eq("community_id", communityId)
+        .eq("action", "Mute")
+        .order('actioned_at', { ascending: false });
+
+      if (mutedError) throw mutedError;
+
+      return {
+        bannedMembers: bannedData as ModeratedMember[] || [],
+        mutedMembers: mutedData as ModeratedMember[] || []
+      };
+    } catch (error) {
+      console.error("Error fetching moderated members:", error);
+      return {
+        bannedMembers: [],
+        mutedMembers: []
+      };
+    }
+  }
 }));

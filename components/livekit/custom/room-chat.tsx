@@ -16,7 +16,12 @@ interface ChatMessage {
   isLocal: boolean;
 }
 
-export function RoomChat() {
+interface RoomChatProps {
+  isMuted?: boolean;
+}
+
+
+export function RoomChat({ isMuted = false }: RoomChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const room = useRoomContext();
@@ -91,6 +96,20 @@ export function RoomChat() {
     setMessages(prev => [...prev, newMessage]);
     setInputValue("");
   };
+
+
+  if (isMuted) {
+    return (
+      <Card className="flex flex-col h-full">
+        <CardContent className="flex items-center justify-center h-full">
+          <div className="text-center text-muted-foreground p-4">
+            <p>Chat is disabled while you are muted.</p>
+            <p className="text-sm mt-2">Please contact the room administrator for assistance.</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
   
   return (
     <Card className="flex flex-col h-full">

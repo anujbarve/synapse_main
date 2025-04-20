@@ -59,6 +59,12 @@ export function CreatePostForm() {
   const { user } = useUserStore();
   const { currentCommunity } = useSingleCommunityStore();
 
+    const { setCurrentCommunity } = useSingleCommunityStore();
+  
+    React.useEffect(() => {
+      setCurrentCommunity(parseInt(currentCommunity.toString() || "0"));
+    }, [setCurrentCommunity,currentCommunity]);
+
   const form = useForm<PostFormValues>({
     resolver: zodResolver(postFormSchema),
     defaultValues: {
