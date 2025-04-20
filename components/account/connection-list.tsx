@@ -132,7 +132,7 @@ export function FriendsList({ userId, isOwnProfile, compact = false }: FriendsLi
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredFriends.map(friend => (
           <Card key={friend.userId} className="p-4 flex items-center justify-between">
-            <Link href={`/profile/${friend.username}`} className="flex items-center gap-3">
+            <Link href={`/account/${friend.userId}`} className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
                 <AvatarImage src={friend.profile_picture || ""} alt={friend.username} />
                 <AvatarFallback>
