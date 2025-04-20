@@ -9,84 +9,89 @@ import {
   Image as ImageIcon,
   Paperclip,
   Search,
-  Trash2, // Icon for delete
-  Edit3, // Icon for edit
-  X, // Icon for cancel edit/remove file
-  Loader2, // Icon for loading states
-  ArrowUp, // Icon for scroll to bottom
+  Trash2,
+  Edit3,
+  X,
+  Loader2,
+  ArrowUp,
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Separator } from "@radix-ui/react-separator";
 import { SidebarTrigger } from "../ui/sidebar";
-import { MessageType, useMessageStore, MessageWithSender } from "@/stores/messages_store"; // Import MessageWithSender
+import { MessageType, useMessageStore, MessageWithSender } from "@/stores/messages_store";
 import { useUserStore } from "@/stores/user_store";
 import { useChannelStore } from "@/stores/channel_store";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useCommunityPresenceStore, useCommunityPresence } from "@/stores/user_online_store";
-import { createClient } from "@/utils/supabase/client"; // Import Supabase client
+import { createClient } from "@/utils/supabase/client";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button"; // Import Button
-import { Input } from "@/components/ui/input"; // Import Input
-import { Textarea } from "@/components/ui/textarea"; // For editing
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Users } from "lucide-react";
 import { useSingleCommunityStore } from "@/stores/single_community_store";
-import { toast } from "sonner"; // For displaying notifications/errors
+import { toast } from "sonner";
+import { Progress } from "@/components/ui/progress"; // Added for upload progress
+import { ImageKitProvider, IKUpload } from "imagekitio-next"; // Added ImageKit imports
 
-// --- Helper: Supabase File Uploader (Basic Example) ---
-async function uploadFileToSupabase(file: File): Promise<string> {
-    const supabase = createClient();
-    const user = useUserStore.getState().user; // Get current user for potential path scoping
-    if (!user) throw new Error("User not logged in for file upload");
+// ImageKit configuration
+const publicKey = process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY!;
+const urlEndpoint = process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!;
 
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-    const filePath = `message_files/${fileName}`; // Adjust your bucket path as needed
-
-    // console.log(`Uploading file: ${fileName} to path: ${filePath}`);
-
-    const { data, error } = await supabase.storage
-        .from('your-storage-bucket-name') // <--- REPLACE with your actual bucket name
-        .upload(filePath, file);
-
-    if (error) {
-        console.error("Supabase storage error:", error);
-        throw new Error(`Failed to upload file: ${error.message}`);
+// ImageKit authenticator function
+const authenticator = async () => {
+  try {
+    const response = await fetch("/api/imagekit");
+    if (!response.ok) {
+      throw new Error(`Authentication failed: ${response.statusText}`);
     }
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Authentication error:", error);
+    toast.error("Failed to authenticate upload");
+    throw error;
+  }
+};
 
-    // Get public URL (ensure your bucket policies allow public reads or use signed URLs)
-    const { data: urlData } = supabase.storage
-        .from('your-storage-bucket-name') // <--- REPLACE with your actual bucket name
-        .getPublicUrl(filePath);
-
-    if (!urlData?.publicUrl) {
-        throw new Error("Could not get public URL for uploaded file.");
-    }
-
-    // console.log(`File uploaded successfully: ${urlData.publicUrl}`);
-    return urlData.publicUrl;
+// Interface for ImageKit upload response
+interface ImageKitResponse {
+  url: string;
+  fileId: string;
+  name: string;
+  size: number;
+  filePath: string;
+  fileType: string;
+  height: number;
+  width: number;
+  thumbnailUrl: string;
 }
 
+// Interface for IKUpload ref
+interface IKUploadRef extends HTMLInputElement {
+  click: () => void;
+}
 
-// --- ChatCard Props ---
+// ChatCard Props
 interface ChatCardProps {
-  userId?: string; // Logged-in user's ID (passed down or derived from useUserStore)
+  userId?: string;
   communityId?: number;
-  receiverId?: string; // ID of the other user in a DM
+  receiverId?: string;
   channelId?: number;
   className?: string;
 }
 
-// --- ChatCard Component ---
+// ChatCard Component
 export function ChatCard({
   communityId,
-  receiverId, // This is the *other* user's ID in DM context
+  receiverId,
   channelId,
   className,
-  userId: propUserId, // Renamed to avoid conflict with store user ID
+  userId: propUserId,
 }: ChatCardProps) {
-  // --- Zustand Stores ---
+  // Zustand Stores
   const { user } = useUserStore();
   const { channels, fetchChannels } = useChannelStore();
   const { setCurrentCommunity } = useSingleCommunityStore();
@@ -99,75 +104,67 @@ export function ChatCard({
     markMessageAsRead,
     clearMessages,
     initializeRealtimeUpdates,
-    loading: messagesLoading, // Renamed to avoid conflict
+    loading: messagesLoading,
     error: messagesError,
     pagination,
     lastFetchParams,
   } = useMessageStore();
 
-  // --- Component State ---
+  // Component State
   const [inputValue, setInputValue] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0); // Added for ImageKit
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null); // Added for ImageKit
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
-  // --- Refs ---
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null); // Ref for auto-scrolling
-  const scrollContainerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable div
+  // Refs
+  const ikUploadRef = useRef<IKUploadRef>(null); // Added ImageKit ref
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // --- Derived Values ---
-  const loggedInUserId = propUserId || user?.id; // Use prop or store user ID
+  // Derived Values
+  const loggedInUserId = propUserId || user?.id;
   const isDM = !!receiverId && !communityId && !channelId;
   const currentContextParams = isDM && loggedInUserId && receiverId
-      ? { userIds: [loggedInUserId, receiverId].sort() as [string, string] } // Ensure consistent order
+      ? { userIds: [loggedInUserId, receiverId].sort() as [string, string] }
       : { communityId, channelId };
 
-  // --- Effects ---
-
-  // Set community context for other potential hooks/components
+  // Set community context
   useEffect(() => {
     if (communityId) {
       setCurrentCommunity(communityId);
     }
   }, [communityId, setCurrentCommunity]);
 
-  // Fetch initial data & setup realtime based on context
+  // Fetch initial data & setup realtime
   useEffect(() => {
-    if (!loggedInUserId) return; // Don't fetch if user isn't identified
+    if (!loggedInUserId) return;
 
-    // Determine fetch parameters based on context
     let fetchParams: Parameters<typeof fetchMessages>[0] | null = null;
 
     if (isDM && receiverId) {
       fetchParams = { userIds: [loggedInUserId, receiverId].sort() as [string, string], pageSize: 20 };
     } else if (communityId && channelId) {
       fetchParams = { communityId, channelId, pageSize: 20 };
-      fetchChannels(communityId.toString()); // Fetch channels for the header display
+      fetchChannels(communityId.toString());
     }
 
     let cleanupRealtime: (() => void) | null = null;
 
     if (fetchParams) {
-       // Clear previous messages and reset pagination before fetching new context
-       clearMessages(); // Includes resetting pagination
+       clearMessages();
        fetchMessages(fetchParams);
-       // Initialize realtime with the same context
        cleanupRealtime = initializeRealtimeUpdates(fetchParams);
     }
 
-    // Cleanup function
     return () => {
-       // console.log("ChatCard cleanup: Unsubscribing from realtime.");
       if (cleanupRealtime) {
         cleanupRealtime();
       }
-      // Optional: clear messages again on unmount? Depends on desired behavior
-      // clearMessages();
     };
-    // Ensure dependencies cover all context identifiers and the loggedInUserId
   }, [
       communityId,
       channelId,
@@ -177,38 +174,32 @@ export function ChatCard({
       fetchMessages,
       fetchChannels,
       initializeRealtimeUpdates,
-      clearMessages // Add clearMessages dependency
+      clearMessages
     ]);
 
    // Effect for scrolling to bottom
    useEffect(() => {
-       // Scroll to bottom when messages load initially or new message added,
-       // but only if user is already near the bottom.
        const container = scrollContainerRef.current;
        if (container) {
-           const isNearBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 200; // Threshold
-           // Only auto-scroll if near bottom or it's the initial load for this context
-           if (isNearBottom || messages.length <= pagination.pageSize) { // Check initial load size
+           const isNearBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 200;
+           if (isNearBottom || messages.length <= pagination.pageSize) {
                scrollToBottom();
            }
        }
-   }, [messages, pagination.pageSize]); // Rerun when messages change
+   }, [messages, pagination.pageSize]);
 
-   // Effect for infinite scroll (load more)
+   // Effect for infinite scroll
    useEffect(() => {
        const container = scrollContainerRef.current;
 
        const handleScroll = () => {
            if (container) {
-                // Check if scrolled near the top
                if (container.scrollTop < 200 && pagination.hasNextPage && !messagesLoading) {
-                   // console.log("Near top, fetching more messages...");
                    fetchMessages({
-                       ...(lastFetchParams ?? {}), // Use last used context
-                       page: pagination.page + 1, // Fetch next page
+                       ...(lastFetchParams ?? {}),
+                       page: pagination.page + 1,
                    });
                }
-               // Show/hide scroll to bottom button
                setShowScrollToBottom(container.scrollHeight - container.scrollTop > container.clientHeight + 300);
            }
        };
@@ -218,59 +209,62 @@ export function ChatCard({
 
    }, [pagination.hasNextPage, pagination.page, messagesLoading, fetchMessages, lastFetchParams]);
 
-  // --- Event Handlers ---
+  // Handlers for ImageKit upload
+  const handleUploadError = (err: { message: string }) => {
+    console.error("Upload error:", err);
+    setIsUploading(false);
+    setUploadProgress(0);
+    toast.error(err.message || "Failed to upload file");
+  };
 
+  const handleUploadSuccess = (res: ImageKitResponse) => {
+    console.log("Upload success:", res);
+    setIsUploading(false);
+    setUploadedUrl(res.url);
+    setSelectedFile(null); // Clear selected file reference after successful upload
+    toast.success("File uploaded successfully");
+    
+    // Auto-send the message with the uploaded file
+    if (res.url) {
+      sendMessageWithAttachment(res.url, res.fileType.startsWith("image/") ? "Image" : "File");
+    }
+  };
+
+  const handleUploadProgress = (progress: { loaded: number; total: number }) => {
+    setUploadProgress((progress.loaded / progress.total) * 100);
+  };
+
+  const handleUploadStart = () => {
+    setIsUploading(true);
+    setUploadProgress(0);
+  };
+
+  // Util functions
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-        // Basic size validation (e.g., 10MB)
-        if (file.size > 10 * 1024 * 1024) {
-             toast.error("File is too large (max 10MB).");
-             return;
-        }
-      setSelectedFile(file);
-      // Don't overwrite text input if user was already typing
-      // setInputValue(file.name);
-    }
+  const handleAttachmentClick = () => {
+    ikUploadRef.current?.click();
   };
 
   const removeSelectedFile = () => {
-      setSelectedFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = ""; // Reset file input
-  }
+    setSelectedFile(null);
+    setUploadedUrl(null);
+    setUploadProgress(0);
+  };
 
-  const handleSendMessage = async () => {
-    if ((!inputValue.trim() && !selectedFile) || !loggedInUserId) return;
-
-    setIsUploading(selectedFile ? true : false); // Show upload indicator if file exists
+  const sendMessageWithAttachment = async (fileUrl: string, messageType: MessageType) => {
+    if (!loggedInUserId) {
+      toast.error("You must be logged in to send messages");
+      return;
+    }
 
     try {
-      let fileUrl: string | null = null;
-      let messageType: MessageType = "Text";
-
-      // 1. Upload file if selected
-      if (selectedFile) {
-        try {
-          fileUrl = await uploadFileToSupabase(selectedFile);
-          messageType = selectedFile.type.startsWith("image/") ? "Image" : "File";
-        } catch (uploadError: any) {
-           console.error("File upload failed:", uploadError);
-           toast.error(`File upload failed: ${uploadError.message}`);
-           setIsUploading(false);
-           return; // Stop message sending process
-        } finally {
-           setIsUploading(false);
-        }
-      }
-
-      // 2. Prepare message data
+      // Prepare message data
       const messageData = {
         sender_id: loggedInUserId,
-        content: inputValue.trim(), // Trim whitespace
+        content: inputValue.trim() || (selectedFile ? selectedFile.name : "Sent an attachment"),
         message_type: messageType,
         community_id: communityId || null,
         channel_id: channelId || null,
@@ -278,81 +272,112 @@ export function ChatCard({
         file_url: fileUrl,
       };
 
-      // 3. Send message via store action
+      // Send message via store action
       await sendMessage(messageData);
 
-      // 4. Reset input state
+      // Reset input state
       setInputValue("");
-      removeSelectedFile(); // Use the helper to reset file state
-      scrollToBottom('smooth'); // Scroll down after sending
+      setUploadedUrl(null);
+      setUploadProgress(0);
+      setSelectedFile(null);
+      scrollToBottom('smooth');
+    } catch (error: any) {
+      console.error("Failed to send message with attachment", error);
+      toast.error(`Failed to send message: ${error?.message || 'Unknown error'}`);
+    }
+  };
 
+  const handleSendMessage = async () => {
+    if ((!inputValue.trim() && !uploadedUrl) || !loggedInUserId) return;
+
+    try {
+      // If we have an uploaded file URL, send with that
+      if (uploadedUrl) {
+        const messageType: MessageType = 
+          uploadedUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)($|\?)/i)
+            ? "Image"
+            : "File";
+            
+        await sendMessageWithAttachment(uploadedUrl, messageType);
+        return;
+      }
+
+      // Otherwise, send a text message
+      const messageData = {
+        sender_id: loggedInUserId,
+        content: inputValue.trim(),
+        message_type: "Text" as MessageType,
+        community_id: communityId || null,
+        channel_id: channelId || null,
+        receiver_id: receiverId || null,
+        file_url: null,
+      };
+
+      await sendMessage(messageData);
+      setInputValue("");
+      scrollToBottom('smooth');
     } catch (error: any) {
       console.error("Failed to send message", error);
-       toast.error(`Failed to send message: ${error?.message || 'Unknown error'}`);
-      // No need to setIsUploading(false) here as it's handled in the finally block or wasn't set
+      toast.error(`Failed to send message: ${error?.message || 'Unknown error'}`);
     }
   };
 
   const handleDeleteMessage = async (messageId: number) => {
-      if (!window.confirm("Are you sure you want to delete this message?")) return;
-      try {
-         await deleteMessage(messageId);
-         toast.success("Message deleted.");
-      } catch (error: any) {
-          console.error("Failed to delete message", error);
-          toast.error(`Failed to delete message: ${error?.message || 'Unknown error'}`);
-      }
-  }
+    if (!window.confirm("Are you sure you want to delete this message?")) return;
+    try {
+       await deleteMessage(messageId);
+       toast.success("Message deleted.");
+    } catch (error: any) {
+        console.error("Failed to delete message", error);
+        toast.error(`Failed to delete message: ${error?.message || 'Unknown error'}`);
+    }
+  };
 
   const handleEditStart = (message: MessageWithSender) => {
-      setEditingMessageId(message.id);
-      setEditingContent(message.content);
-  }
+    setEditingMessageId(message.id);
+    setEditingContent(message.content);
+  };
 
   const handleEditCancel = () => {
-      setEditingMessageId(null);
-      setEditingContent("");
-  }
+    setEditingMessageId(null);
+    setEditingContent("");
+  };
 
   const handleEditSave = async () => {
-       if (!editingMessageId || !editingContent.trim()) return;
+    if (!editingMessageId || !editingContent.trim()) return;
 
-       try {
-           await updateMessage(editingMessageId, { content: editingContent.trim() });
-           toast.success("Message updated.");
-           handleEditCancel(); // Reset editing state
-       } catch (error: any) {
-           console.error("Failed to update message", error);
-           toast.error(`Failed to update message: ${error?.message || 'Unknown error'}`);
-       }
-  }
+    try {
+        await updateMessage(editingMessageId, { content: editingContent.trim() });
+        toast.success("Message updated.");
+        handleEditCancel();
+    } catch (error: any) {
+        console.error("Failed to update message", error);
+        toast.error(`Failed to update message: ${error?.message || 'Unknown error'}`);
+    }
+  };
 
-  // --- Render Logic ---
-
-  // Reverse messages for display (newest at the bottom)
+  // Render Logic
   const displayedMessages = React.useMemo(() => [...messages].reverse(), [messages]);
 
   // Header Content Logic
-   const getHeaderTitle = () => {
-       if (isDM) {
-           // In a real app, you'd fetch the receiver's username here
-           return `Direct Message`; // Placeholder - fetch receiver name later
-       } else if (communityId && channelId) {
-           const channel = channels.find((c) => c.id === channelId);
-           return channel ? `${channel.name}` : "Loading Channel...";
-       }
-       return "Chat"; // Default
-   };
+  const getHeaderTitle = () => {
+    if (isDM) {
+      return `Direct Message`;
+    } else if (communityId && channelId) {
+      const channel = channels.find((c) => c.id === channelId);
+      return channel ? `${channel.name}` : "Loading Channel...";
+    }
+    return "Chat";
+  };
 
-   const getHeaderSubtitle = () => {
-       if (isDM) {
-           return `Chatting with ${receiverId}`; // Placeholder - use receiver's actual username
-       } else if (communityId) {
-           // Could show community name here if available
-           return `Community: ${communityId}`; // Placeholder
-       }
-       return null;
-   }
+  const getHeaderSubtitle = () => {
+    if (isDM) {
+      return `Chatting with ${receiverId}`;
+    } else if (communityId) {
+      return `Community: ${communityId}`;
+    }
+    return null;
+  };
 
   // Display error state
   if (messagesError) {
@@ -361,60 +386,56 @@ export function ChatCard({
 
   // Ensure user is identified before rendering main chat UI
   if (!loggedInUserId) {
-      return <div className="flex items-center justify-center h-full text-muted-foreground p-4">Identifying user...</div>;
+    return <div className="flex items-center justify-center h-full text-muted-foreground p-4">Identifying user...</div>;
   }
 
   return (
-    <div className={cn("h-full flex flex-col bg-background", className)}>
-      {/* Header */}
-      <div className="px-4 py-3 flex items-center justify-between border-b shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <SidebarTrigger className="-ml-1 md:hidden" /> {/* Hide on medium+ screens */}
-          <Separator orientation="vertical" className="mr-2 h-6 hidden md:block" />
-          {/* Header Avatar/Icon (Optional) */}
-           {/*
-            <Avatar className="w-10 h-10">
-              <AvatarImage src={ isDM ? receiverProfilePic : channelIcon } />
-              <AvatarFallback>{getHeaderTitle().slice(0, 1)}</AvatarFallback>
-            </Avatar>
-          */}
-          <div className="min-w-0">
-            <h3 className="font-medium truncate">{getHeaderTitle()}</h3>
-            <p className="text-xs text-muted-foreground truncate">{getHeaderSubtitle()}</p>
+    <ImageKitProvider
+      publicKey={publicKey}
+      urlEndpoint={urlEndpoint}
+      authenticator={authenticator}
+    >
+      <div className={cn("h-full flex flex-col bg-background", className)}>
+        {/* Header */}
+        <div className="px-4 py-3 flex items-center justify-between border-b shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <SidebarTrigger className="-ml-1 md:hidden" />
+            <Separator orientation="vertical" className="mr-2 h-6 hidden md:block" />
+            <div className="min-w-0">
+              <h3 className="font-medium truncate">{getHeaderTitle()}</h3>
+              <p className="text-xs text-muted-foreground truncate">{getHeaderSubtitle()}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 sm:gap-2">
+            {communityId && <OnlineMembersPopover communityId={communityId} />}
+            <Button variant="ghost" size="icon" className="rounded-full">
+              <MoreHorizontal className="w-5 h-5" />
+            </Button>
           </div>
         </div>
-        <div className="flex items-center gap-1 sm:gap-2">
-          {/* Add Online Members Popover if in a community context */}
-          {communityId && <OnlineMembersPopover communityId={communityId} />}
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <MoreHorizontal className="w-5 h-5" />
-          </Button>
-        </div>
-      </div>
 
-      {/* Messages Area */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 relative">
-            {/* Loading Indicator for initial load or pagination */}
-           {messagesLoading && messages.length === 0 && (
-               <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                </div>
-           )}
-           {messagesLoading && messages.length > 0 && (
-               <div className="flex justify-center py-2">
-                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                </div>
-           )}
+        {/* Messages Area */}
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 relative">
+        {messagesLoading && messages.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          )}
+          {messagesLoading && messages.length > 0 && (
+            <div className="flex justify-center py-2">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          )}
 
-        {/* Render "No messages" only if not loading and messages array is empty */}
-        {!messagesLoading && displayedMessages.length === 0 ? (
-          <div className="text-center text-muted-foreground pt-10">
-            No messages yet. Start the conversation!
-          </div>
-        ) : (
-          displayedMessages.map((message) => (
-            <MessageItem
-                key={`message-${message.id}-${message.sent_at}`} // More unique key
+          {/* Render "No messages" only if not loading and messages array is empty */}
+          {!messagesLoading && displayedMessages.length === 0 ? (
+            <div className="text-center text-muted-foreground pt-10">
+              No messages yet. Start the conversation!
+            </div>
+          ) : (
+            displayedMessages.map((message) => (
+              <MessageItem
+                key={`message-${message.id}-${message.sent_at}`}
                 message={message}
                 isOwnMessage={message.sender_id === loggedInUserId}
                 onDelete={handleDeleteMessage}
@@ -424,307 +445,358 @@ export function ChatCard({
                 onEditingContentChange={setEditingContent}
                 onEditSave={handleEditSave}
                 onEditCancel={handleEditCancel}
-                onMarkAsRead={markMessageAsRead} // Pass mark as read handler
-            />
-          ))
-        )}
-        {/* Element to scroll to */}
-        <div ref={messagesEndRef} />
-      </div>
+                onMarkAsRead={markMessageAsRead}
+              />
+            ))
+          )}
+          {/* Element to scroll to */}
+          <div ref={messagesEndRef} />
+        </div>
 
-      {/* Scroll to Bottom Button */}
-       {showScrollToBottom && (
-            <Button
-                variant="outline"
-                size="icon"
-                className="absolute bottom-24 right-6 rounded-full shadow-lg z-20 animate-bounce"
-                onClick={() => scrollToBottom('smooth')}
-                aria-label="Scroll to bottom"
-            >
-                <ArrowUp className="w-5 h-5 rotate-180" />
-            </Button>
-        )}
-
-      {/* Input Area */}
-      <div className="p-4 border-t shrink-0 bg-background">
-         {/* File Preview Area */}
-         {selectedFile && (
-           <div className="mb-2 flex items-center justify-between bg-muted p-2 rounded-lg text-sm">
-             <div className="flex items-center gap-2 overflow-hidden">
-               {isUploading ? (
-                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-               ) : selectedFile.type.startsWith("image/") ? (
-                 <ImageIcon className="w-4 h-4 text-muted-foreground shrink-0" />
-               ) : (
-                 <Paperclip className="w-4 h-4 text-muted-foreground shrink-0" />
-               )}
-               <span className="truncate">{selectedFile.name}</span>
-               <span className="text-xs text-muted-foreground shrink-0">
-                  ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
-               </span>
-             </div>
-             <Button
-               variant="ghost"
-               size="icon"
-               className="h-6 w-6 rounded-full shrink-0"
-               onClick={removeSelectedFile}
-               disabled={isUploading}
-             >
-               <X className="w-4 h-4" />
-             </Button>
-           </div>
-         )}
-        {/* Main Input Row */}
-        <div className="flex items-center gap-2">
-          {/* Hidden File Input */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            onChange={handleFileSelect}
-            accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt" // Expanded accept types
-            disabled={isUploading}
-          />
-          {/* Attach Button */}
+        {/* Scroll to Bottom Button */}
+        {showScrollToBottom && (
           <Button
-            variant="ghost"
+            variant="outline"
             size="icon"
-            className="rounded-full shrink-0"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-            aria-label="Attach file"
+            className="absolute bottom-24 right-6 rounded-full shadow-lg z-20 animate-bounce"
+            onClick={() => scrollToBottom('smooth')}
+            aria-label="Scroll to bottom"
           >
-            <Paperclip className="w-5 h-5" />
+            <ArrowUp className="w-5 h-5 rotate-180" />
           </Button>
+        )}
 
-          {/* Text Input */}
-          <div className="relative flex-1">
-            <Input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-              placeholder="Write a message..."
-              className="pr-10" // Make space for emoji button
-              disabled={isUploading}
-              aria-label="Message input"
-            />
-            {/* Emoji Button (Functionality not implemented) */}
+        {/* Input Area */}
+        <div className="p-4 border-t shrink-0 bg-background">
+          {/* ImageKit Upload (hidden) */}
+          <IKUpload
+            fileName={`message-${Date.now()}`}
+            folder="/messages"
+            validateFile={(file: File) => {
+              // Store the selected file for UI display
+              setSelectedFile(file);
+              // Validate file size (100MB max)
+              return file.size <= 100 * 1024 * 1024;
+            }}
+            onError={handleUploadError}
+            onSuccess={handleUploadSuccess}
+            onUploadProgress={handleUploadProgress}
+            onUploadStart={handleUploadStart}
+            style={{ display: "none" }}
+            ref={ikUploadRef}
+            // Accept most common file types
+            accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt"
+          />
+
+          {/* Upload Progress Area */}
+          {isUploading && (
+            <div className="mb-2 p-2 bg-muted rounded-lg">
+              <div className="flex justify-between items-center mb-1 text-sm">
+                <span>Uploading {selectedFile?.name}</span>
+                <span>{Math.round(uploadProgress)}%</span>
+              </div>
+              <Progress value={uploadProgress} className="h-2" />
+            </div>
+          )}
+
+          {/* File Preview Area */}
+          {selectedFile && !isUploading && !uploadedUrl && (
+            <div className="mb-2 flex items-center justify-between bg-muted p-2 rounded-lg text-sm">
+              <div className="flex items-center gap-2 overflow-hidden">
+                {selectedFile.type.startsWith("image/") ? (
+                  <ImageIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+                ) : (
+                  <Paperclip className="w-4 h-4 text-muted-foreground shrink-0" />
+                )}
+                <span className="truncate">{selectedFile.name}</span>
+                <span className="text-xs text-muted-foreground shrink-0">
+                  ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded-full shrink-0"
+                onClick={removeSelectedFile}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+
+          {/* Uploaded File Preview */}
+          {uploadedUrl && !isUploading && (
+            <div className="mb-2 flex items-center justify-between bg-primary/10 p-2 rounded-lg text-sm">
+              <div className="flex items-center gap-2 overflow-hidden">
+                {uploadedUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)($|\?)/i) ? (
+                  <ImageIcon className="w-4 h-4 text-primary shrink-0" />
+                ) : (
+                  <Paperclip className="w-4 h-4 text-primary shrink-0" />
+                )}
+                <span className="truncate">File ready to send</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded-full shrink-0"
+                onClick={removeSelectedFile}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+
+          {/* Main Input Row */}
+          <div className="flex items-center gap-2">
+            {/* Attach Button */}
             <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full shrink-0"
+              onClick={handleAttachmentClick}
+              disabled={isUploading}
+              aria-label="Attach file"
+            >
+              <Paperclip className="w-5 h-5" />
+            </Button>
+
+            {/* Text Input */}
+            <div className="relative flex-1">
+              <Input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                placeholder="Write a message..."
+                className="pr-10"
+                disabled={isUploading}
+                aria-label="Message input"
+              />
+              {/* Emoji Button */}
+              <Button
                 variant="ghost"
                 size="icon"
                 className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full"
                 disabled={isUploading}
                 aria-label="Add emoji"
+              >
+                <SmilePlus className="w-5 h-5" />
+              </Button>
+            </div>
+            {/* Send Button */}
+            <Button
+              onClick={handleSendMessage}
+              disabled={((!inputValue.trim() && !uploadedUrl) || isUploading)}
+              size="icon"
+              className="rounded-lg shrink-0"
+              aria-label="Send message"
             >
-              <SmilePlus className="w-5 h-5" />
+              {isUploading ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5" />}
             </Button>
           </div>
-          {/* Send Button */}
-          <Button
-            onClick={handleSendMessage}
-            disabled={(!inputValue.trim() && !selectedFile) || isUploading}
-            size="icon"
-            className="rounded-lg shrink-0"
-            aria-label="Send message"
-          >
-           {isUploading ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5" />}
-          </Button>
         </div>
       </div>
-    </div>
+    </ImageKitProvider>
   );
 }
 
-
-// --- MessageItem Component ---
+// MessageItem Component
 interface MessageItemProps {
-    message: MessageWithSender;
-    isOwnMessage: boolean;
-    onDelete: (messageId: number) => void;
-    onEditStart: (message: MessageWithSender) => void;
-    isEditing: boolean;
-    editingContent: string;
-    onEditingContentChange: (content: string) => void;
-    onEditSave: () => void;
-    onEditCancel: () => void;
-    onMarkAsRead: (messageId: number) => void;
+  message: MessageWithSender;
+  isOwnMessage: boolean;
+  onDelete: (messageId: number) => void;
+  onEditStart: (message: MessageWithSender) => void;
+  isEditing: boolean;
+  editingContent: string;
+  onEditingContentChange: (content: string) => void;
+  onEditSave: () => void;
+  onEditCancel: () => void;
+  onMarkAsRead: (messageId: number) => void;
 }
 
 const MessageItem: React.FC<MessageItemProps> = ({
-    message,
-    isOwnMessage,
-    onDelete,
-    onEditStart,
-    isEditing,
-    editingContent,
-    onEditingContentChange,
-    onEditSave,
-    onEditCancel,
-    onMarkAsRead,
+  message,
+  isOwnMessage,
+  onDelete,
+  onEditStart,
+  isEditing,
+  editingContent,
+  onEditingContentChange,
+  onEditSave,
+  onEditCancel,
+  onMarkAsRead,
 }) => {
-    const messageRef = useRef<HTMLDivElement>(null);
+  const messageRef = useRef<HTMLDivElement>(null);
 
-    // Effect for Intersection Observer (Mark as Read)
-    useEffect(() => {
-        if (!messageRef.current || isOwnMessage || message.is_read) {
-            return; // Don't observe own messages or already read messages
-        }
+  // Effect for Intersection Observer (Mark as Read)
+  useEffect(() => {
+    if (!messageRef.current || isOwnMessage || message.is_read) {
+      return; // Don't observe own messages or already read messages
+    }
 
-        const observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        // console.log(`Message ${message.id} is visible, marking as read.`);
-                        onMarkAsRead(message.id);
-                        observer.unobserve(entry.target); // Stop observing once marked
-                    }
-                });
-            },
-            { threshold: 0.5 } // Trigger when 50% visible
-        );
-
-        observer.observe(messageRef.current);
-
-        return () => {
-             if (messageRef.current) {
-                // eslint-disable-next-line react-hooks/exhaustive-deps
-                observer.unobserve(messageRef.current);
-             }
-        }
-    }, [message.id, isOwnMessage, message.is_read, onMarkAsRead]);
-
-
-    return (
-        <div
-            ref={messageRef} // Ref for intersection observer
-            className={cn(
-                "flex items-start gap-3 group relative", // Add group for hover effects
-                isOwnMessage ? "justify-end" : ""
-            )}
-        >
-            {/* Avatar (Show for other users) */}
-            {!isOwnMessage && (
-                <Avatar className="w-9 h-9 shrink-0">
-                    <AvatarImage src={message.sender.profile_picture || undefined} alt={message.sender.username}/>
-                    <AvatarFallback>{message.sender.username.slice(0,1).toUpperCase()}</AvatarFallback>
-                </Avatar>
-            )}
-
-            {/* Message Bubble */}
-            <div
-                className={cn(
-                    "flex-grow-0 max-w-[75%] p-2 px-3 rounded-lg relative", // flex-grow-0 prevents bubble stretching unnecessarily
-                    isOwnMessage ? "bg-primary text-primary-foreground" : "bg-muted"
-                )}
-            >
-                 {/* Edit/Delete Buttons (Show on hover for own messages) */}
-                 {isOwnMessage && !isEditing && (
-                      <div className="absolute -top-2 -left-8 opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1">
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => onEditStart(message)}>
-                                <Edit3 className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/70 hover:text-destructive" onClick={() => onDelete(message.id)}>
-                                <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                        </div>
-                    )}
-
-                {/* Sender Name (Show for other users) */}
-                {!isOwnMessage && (
-                    <div className="text-xs font-medium mb-1 text-primary">
-                        {message.sender.username}
-                    </div>
-                )}
-
-                {/* Editing View */}
-                 {isEditing ? (
-                     <div className="space-y-2">
-                         <Textarea
-                            value={editingContent}
-                            onChange={(e) => onEditingContentChange(e.target.value)}
-                            rows={3}
-                            className="text-sm bg-background text-foreground focus:ring-1" // Adjust styling for edit mode
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    onEditSave();
-                                } else if (e.key === 'Escape') {
-                                    onEditCancel();
-                                }
-                            }}
-                         />
-                         <div className="flex justify-end items-center space-x-2">
-                             <Button variant="ghost" size="sm" onClick={onEditCancel}>Cancel</Button>
-                             <Button size="sm" onClick={onEditSave} disabled={!editingContent.trim()}>Save</Button>
-                         </div>
-                     </div>
-                 ) : (
-                    <>
-                      {/* Message Content (Image/File/Text) */}
-                      {message.message_type === "Image" && message.file_url && (
-                          <a href={message.file_url} target="_blank" rel="noopener noreferrer">
-                             <Image
-                                src={message.file_url}
-                                alt="Sent image"
-                                width={250} // Adjust size as needed
-                                height={250}
-                                className="rounded-md mb-1 max-w-full h-auto cursor-pointer"
-                             />
-                          </a>
-                      )}
-                      {message.message_type === "File" && message.file_url && (
-                          <a
-                              href={message.file_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={cn(
-                                "flex items-center gap-2 p-2 rounded-md mb-1 hover:bg-black/10 dark:hover:bg-white/10",
-                                isOwnMessage ? "bg-primary/80 hover:bg-primary/70" : "bg-muted-foreground/10 hover:bg-muted-foreground/20"
-                              )}
-                          >
-                             <Paperclip className="w-4 h-4 shrink-0"/>
-                             <span className="text-sm truncate">
-                                {message.content || message.file_url.split('/').pop()?.split('?')[0].split('-').slice(1).join('-')} {/* Extract filename */}
-                              </span>
-                          </a>
-                      )}
-                      {/* Only display text content if it's not primarily a file message OR if there's actual text content */}
-                      {message.content && (
-                          <p className="text-sm break-words whitespace-pre-wrap">{message.content}</p>
-                      )}
-
-                      {/* Timestamp and Read Status */}
-                       <div className={cn("text-xs mt-1 flex items-center gap-1", isOwnMessage ? "justify-end text-primary-foreground/70" : "justify-start text-muted-foreground")}>
-                           <span>{new Date(message.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                           {isOwnMessage && (
-                               message.is_read ? (
-                                   <CheckCheck className="w-3.5 h-3.5 text-blue-400" /> // Different color for read receipts
-                               ) : (
-                                   <Check className="w-3.5 h-3.5" />
-                               )
-                           )}
-                       </div>
-                   </>
-                 )}
-            </div>
-
-             {/* Avatar (Show for own messages on the right) */}
-            {isOwnMessage && (
-                <Avatar className="w-9 h-9 shrink-0">
-                    <AvatarImage src={message.sender.profile_picture || undefined} alt={message.sender.username}/>
-                    <AvatarFallback>{message.sender.username.slice(0,1).toUpperCase()}</AvatarFallback>
-                </Avatar>
-            )}
-        </div>
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            onMarkAsRead(message.id);
+            observer.unobserve(entry.target); // Stop observing once marked
+          }
+        });
+      },
+      { threshold: 0.5 } // Trigger when 50% visible
     );
+
+    observer.observe(messageRef.current);
+
+    return () => {
+      if (messageRef.current) {
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        observer.unobserve(messageRef.current);
+      }
+    }
+  }, [message.id, isOwnMessage, message.is_read, onMarkAsRead]);
+
+  // Function to open image in lightbox or new tab
+  const handleImageClick = (url: string) => {
+    // You could implement a lightbox here, or just open in new tab
+    window.open(url, '_blank');
+  };
+
+  return (
+    <div
+      ref={messageRef}
+      className={cn(
+        "flex items-start gap-3 group relative",
+        isOwnMessage ? "justify-end" : ""
+      )}
+    >
+      {/* Avatar (Show for other users) */}
+      {!isOwnMessage && (
+        <Avatar className="w-9 h-9 shrink-0">
+          <AvatarImage src={message.sender.profile_picture || undefined} alt={message.sender.username}/>
+          <AvatarFallback>{message.sender.username.slice(0,1).toUpperCase()}</AvatarFallback>
+        </Avatar>
+      )}
+
+      {/* Message Bubble */}
+      <div
+        className={cn(
+          "flex-grow-0 max-w-[75%] p-2 px-3 rounded-lg relative",
+          isOwnMessage ? "bg-primary text-primary-foreground" : "bg-muted"
+        )}
+      >
+        {/* Edit/Delete Buttons (Show on hover for own messages) */}
+        {isOwnMessage && !isEditing && (
+          <div className="absolute -top-2 -left-8 opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1">
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => onEditStart(message)}>
+              <Edit3 className="w-3.5 h-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/70 hover:text-destructive" onClick={() => onDelete(message.id)}>
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        )}
+
+        {/* Sender Name (Show for other users) */}
+        {!isOwnMessage && (
+          <div className="text-xs font-medium mb-1 text-primary">
+            {message.sender.username}
+          </div>
+        )}
+
+        {/* Editing View */}
+        {isEditing ? (
+          <div className="space-y-2">
+            <Textarea
+              value={editingContent}
+              onChange={(e) => onEditingContentChange(e.target.value)}
+              rows={3}
+              className="text-sm bg-background text-foreground focus:ring-1"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  onEditSave();
+                } else if (e.key === 'Escape') {
+                  onEditCancel();
+                }
+              }}
+            />
+            <div className="flex justify-end items-center space-x-2">
+              <Button variant="ghost" size="sm" onClick={onEditCancel}>Cancel</Button>
+              <Button size="sm" onClick={onEditSave} disabled={!editingContent.trim()}>Save</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Message Content (Image/File/Text) */}
+            {message.message_type === "Image" && message.file_url && (
+              <div 
+                className="cursor-pointer"
+                onClick={() => handleImageClick(message.file_url!)}
+              >
+                <Image
+                  src={message.file_url}
+                  alt="Sent image"
+                  width={250}
+                  height={250}
+                  className="rounded-md mb-1 max-w-full h-auto hover:opacity-90 transition-opacity"
+                />
+              </div>
+            )}
+            {message.message_type === "File" && message.file_url && (
+              <a
+                href={message.file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "flex items-center gap-2 p-2 rounded-md mb-1 hover:bg-black/10 dark:hover:bg-white/10",
+                  isOwnMessage ? "bg-primary/80 hover:bg-primary/70" : "bg-muted-foreground/10 hover:bg-muted-foreground/20"
+                )}
+              >
+                <Paperclip className="w-4 h-4 shrink-0"/>
+                <span className="text-sm truncate">
+                  {message.content || message.file_url.split('/').pop()?.split('?')[0].split('-').slice(1).join('-')}
+                </span>
+              </a>
+            )}
+            {/* Only display text content if it's not primarily a file message OR if there's actual text content */}
+            {message.content && (
+              <p className="text-sm break-words whitespace-pre-wrap">{message.content}</p>
+            )}
+
+            {/* Timestamp and Read Status */}
+            <div className={cn("text-xs mt-1 flex items-center gap-1", isOwnMessage ? "justify-end text-primary-foreground/70" : "justify-start text-muted-foreground")}>
+              <span>{new Date(message.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              {isOwnMessage && (
+                message.is_read ? (
+                  <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
+                ) : (
+                  <Check className="w-3.5 h-3.5" />
+                )
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Avatar (Show for own messages on the right) */}
+      {isOwnMessage && (
+        <Avatar className="w-9 h-9 shrink-0">
+          <AvatarImage src={message.sender.profile_picture || undefined} alt={message.sender.username}/>
+          <AvatarFallback>{message.sender.username.slice(0,1).toUpperCase()}</AvatarFallback>
+        </Avatar>
+      )}
+    </div>
+  );
 };
 
+// OnlineMembersPopover Componen
+            
 // Copy and paste the OnlineMembersPopover component below the CommunitySettingsDialog component
 
 interface CommunityMember {

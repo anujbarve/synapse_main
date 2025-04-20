@@ -45,7 +45,7 @@ export function BlockedUsers({ userId }: BlockedUsersProps) {
   if (connections.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        You haven &apos t blocked any users
+        You have not blocked any users
       </div>
     );
   }
