@@ -9,7 +9,8 @@ import {
   LogOut,
   Moon,
   Settings,
-  Sun
+  Sun,
+  Users
 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -149,7 +150,7 @@ export function NavUser({
 
               <Link href={"/connections"}>
                 <DropdownMenuItem>
-                  <Settings />
+                  <Users />
                   Connections
                 </DropdownMenuItem>
               </Link>

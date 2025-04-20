@@ -157,7 +157,7 @@ export function FriendsList({ userId, isOwnProfile, compact = false }: FriendsLi
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
-                    <Link href={`/messages/${friend.userId}`} className="flex items-center">
+                    <Link href={`/chat/${friend.userId}`} className="flex items-center">
                       <MessageSquare className="mr-2 h-4 w-4" />
                       Message
                     </Link>

@@ -87,15 +87,19 @@ export function ProfileHeader({ profile, isLoading = false }: ProfileHeaderProps
           <div className="flex w-full gap-2">
             {!isOwnProfile && (
               <>
-                <ConnectionButton 
+                <Link href={``}>
+                <ConnectionButton   
                   targetUserId={profile.id} 
                   targetUsername={profile.username} 
                   variant="responsive"
                 />
-                <Button variant="outline" size="sm" className="flex-1">
+                </Link>
+                <Link href={`/chat/${profile.id}`} className="w-full">
+                <Button variant="outline" className="flex-1">
                   <MessageSquare className="mr-2 h-4 w-4" />
                   <span>Message</span>
                 </Button>
+                </Link>
               </>
             )}
             {isOwnProfile && (
