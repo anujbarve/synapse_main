@@ -88,13 +88,13 @@ const extractIds = (relatedId: string | null) => {
 
 export function ActivityFeed() {
   const { user } = useUserStore();
-  const { publicNotifications, loading, error, fetchPublicNotifications } = useNotificationStore();
+  const { notifications, loading, error, fetchNotifications } = useNotificationStore();
   
   useEffect(() => {
     if (user?.id) {
-      fetchPublicNotifications(user.id, 10); // Fetch 10 most recent public activities
+      fetchNotifications(user.id, 10); // Fetch 10 most recent public activities
     }
-  }, [user?.id, fetchPublicNotifications]);
+  }, [user?.id, fetchNotifications]);
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -198,12 +198,12 @@ export function ActivityFeed() {
         <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4">
-        {publicNotifications.length === 0 ? (
+        {notifications.length === 0 ? (
           <div className="text-center text-sm text-muted-foreground py-4">
             No recent activity
           </div>
         ) : (
-          publicNotifications.map(notification => (
+          notifications.map(notification => (
             <div key={notification.id} className="flex gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
                 {getActivityIcon(notification.notification_type)}

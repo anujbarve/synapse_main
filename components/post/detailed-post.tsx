@@ -5,10 +5,10 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   Edit,
-  Heart,
+  // Heart,
   MessageSquare,
   MoreVertical,
-  Share,
+  // Share,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -610,14 +610,14 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
                 <MessageSquare className="h-4 w-4 mr-2" />
                 {comments.length} Comments
               </Button>
-              <Button variant="ghost" size="sm">
+              {/* <Button variant="ghost" size="sm">
                 <Share className="h-4 w-4 mr-2" />
                 Share
               </Button>
               <Button variant="ghost" size="sm">
                 <Heart className="h-4 w-4 mr-2" />
                 Save
-              </Button>
+              </Button> */}
             </div>
           </CardFooter>
         </Card>

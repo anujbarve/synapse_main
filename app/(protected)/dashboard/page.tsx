@@ -20,11 +20,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Activity, Clock } from "lucide-react";
+import { ActivityFeed } from "@/components/account/activity-feed";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 type SortOption = "latest" | "top" | "controversial";
+type ActivityTab = "recent" | "activity";
 
 export default function DashboardPage() {
   const [sortBy, setSortBy] = useState<SortOption>("latest");
+  const [activeTab, setActiveTab] = useState<ActivityTab>("recent");
   const { posts, loading, error, fetchAllPosts } = usePostStore();
 
   useEffect(() => {
@@ -82,7 +87,7 @@ export default function DashboardPage() {
         downvotes={post.downvotes}
         createdAt={post.created_at}
         author={post.author}
-        community={post.community} // Add this if you want to show community info
+        community={post.community}
       />
     ));
   };
@@ -129,7 +134,29 @@ export default function DashboardPage() {
 
         <div className="col-span-1 md:col-span-1 lg:col-span-3">
           <div className="sticky top-4">
-            <RecentPosts />
+            <Tabs 
+              defaultValue="recent" 
+              className="w-full"
+              onValueChange={(value) => setActiveTab(value as ActivityTab)}
+              value={activeTab}
+            >
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="recent" className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Recent
+                </TabsTrigger>
+                <TabsTrigger value="activity" className="flex items-center gap-2">
+                  <Activity className="h-4 w-4" />
+                  Activity
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="recent" className="mt-0">
+                <RecentPosts />
+              </TabsContent>
+              <TabsContent value="activity" className="mt-0">
+                <ActivityFeed />
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </main>

@@ -2,10 +2,10 @@
 
 import {
   BadgeCheck,
-  Bell,
+  // Bell,
   ChevronsUpDown,
   CirclePlus,
-  CreditCard,
+  // CreditCard,
   LogOut,
   Moon,
   Settings,
@@ -35,7 +35,6 @@ import { useState } from "react";
 import { logOut } from "@/actions/auth";
 import Image from "next/image";
 import React from "react";
-import { toast } from "sonner";
 
 export function NavUser({
   user,
@@ -63,11 +62,6 @@ export function NavUser({
     setLoading(true);
     await logOut();
     setLoading(false);
-  };
-
-  const notificationToast = () => {
-    console.log("toast invoked");
-    toast.success('Event has been created')
   };
 
 
@@ -162,14 +156,14 @@ export function NavUser({
                 </DropdownMenuItem>
               </Link>
 
-              <DropdownMenuItem>
+              {/* <DropdownMenuItem>
                 <CreditCard />
                 Billing
               </DropdownMenuItem>
               <DropdownMenuItem onClick={notificationToast}>
                 <Bell />
                 Notifications
-              </DropdownMenuItem>
+              </DropdownMenuItem> */}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout} disabled={loading}>

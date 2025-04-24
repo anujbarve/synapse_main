@@ -6,6 +6,7 @@ import {
   ArrowUpIcon,
   ChevronDownIcon,
   MessageSquareIcon,
+  ClockIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,22 +28,14 @@ export function RecentPosts() {
 
   React.useEffect(() => {
     fetchRecentPosts(1);
-
-    // Cleanup function
     return () => {
       useRecentPostsStore.getState().resetPosts();
     };
   }, [fetchRecentPosts]);
 
-  const handleLoadMore = () => {
-    if (!loading && hasMore) {
-      fetchRecentPosts(currentPage + 1);
-    }
-  };
-
   if (error) {
     return (
-      <Card>
+      <Card className="border-none shadow-none">
         <CardContent className="p-6">
           <div className="text-center text-red-500">
             Error loading posts: {error}
@@ -53,107 +46,89 @@ export function RecentPosts() {
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="shadow-none">
+      <CardHeader className="px-0">
         <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <ActivityIcon className="h-5 w-5 text-muted-foreground" />
+          <div className="flex items-center gap-2 text-lg font-semibold">
+            <ActivityIcon className="ml-5 h-5 w-5 text-primary" />
             <span>Recent Activity</span>
           </div>
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80 mr-5">
             View All
           </Button>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {loading && posts.length === 0
-          ? // Loading skeletons
-            Array(4)
-              .fill(0)
-              .map((_, index) => (
-                <div key={index} className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <Skeleton className="h-12 w-12 rounded-full" />
-                    <div className="space-y-2 flex-1">
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-24" />
-                    </div>
-                  </div>
-                  {index !== 3 && <Skeleton className="h-[1px] w-full" />}
-                </div>
-              ))
-          : posts.map((post, index) => (
-              <div
-                key={post.id}
-                className="flex flex-col items-center space-y-3"
-              >
-                <div className="relative w-12 h-12">
-                  <Avatar className="h-full w-full rounded-full ring-2 ring-muted">
+      <CardContent className="px-0 space-y-4">
+        {loading && posts.length === 0 ? (
+          <LoadingSkeletons />
+        ) : (
+          posts.map((post) => (
+            <div
+              key={post.id}
+              className="group relative rounded-lg hover:bg-muted/50 transition-colors p-4"
+            >
+              <div className="flex items-start gap-4">
+                <Link href={`/account/${post.author.id}`}>
+                  <Avatar className="h-10 w-10 ring-2 ring-primary/10 transition-all group-hover:ring-primary/20">
                     <AvatarImage
                       src={post.author.profile_picture || undefined}
                       alt={post.author.username}
-                      className="rounded-full object-cover"
+                      className="object-cover"
                     />
-                    <AvatarFallback className="rounded-full bg-muted">
+                    <AvatarFallback className="bg-primary/5 text-primary">
                       {post.author.username[0].toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                </div>
+                </Link>
 
-                <div className="w-full text-center space-y-2">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">
-                      <Link 
-                        href={`/post/${post.id}`}
-                        className="hover:underline"
-                        >{post.title}
-                      </Link>
-                    </p>
-                    <div className="flex items-center justify-center space-x-2 text-xs text-muted-foreground">
-                      <span>
-                        <Link
-                          href={`/account/${post.author.id}`}
-                          className="hover:underline"
-                        >
-                          {post.author.username}
-                        </Link>
-                      </span>
-                      <span>•</span>
-                      <span>
-                        {formatDistanceToNow(new Date(post.created_at), {
-                          addSuffix: true,
-                        })}
-                      </span>
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Link 
+                      href={`/account/${post.author.id}`}
+                      className="text-sm font-medium hover:text-primary"
+                    >
+                      {post.author.username}
+                    </Link>
+                    <div className="flex items-center text-xs text-muted-foreground">
+                      <ClockIcon className="mr-1 h-3 w-3" />
+                      {formatDistanceToNow(new Date(post.created_at), {
+                        addSuffix: true,
+                      })}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-center space-x-4 text-sm text-muted-foreground">
-                    <div className="flex items-center space-x-1">
-                      <MessageSquareIcon className="h-4 w-4" />
-                      <span>{post._count.comments}</span>
+                  <Link 
+                    href={`/post/${post.id}`}
+                    className="block text-sm font-medium hover:text-primary"
+                  >
+                    {post.title}
+                  </Link>
+
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <MessageSquareIcon className="h-3.5 w-3.5" />
+                      <span>{post._count.comments} comments</span>
                     </div>
-                    <div className="flex items-center space-x-1">
-                      <ArrowUpIcon className="h-4 w-4" />
-                      <span>{post.upvotes}</span>
+                    <div className="flex items-center gap-1">
+                      <ArrowUpIcon className="h-3.5 w-3.5" />
+                      <span>{post.upvotes} upvotes</span>
                     </div>
                   </div>
                 </div>
-
-                {index !== posts.length - 1 && (
-                  <div className="w-full border-t border-muted mt-3" />
-                )}
               </div>
-            ))}
+            </div>
+          ))
+        )}
       </CardContent>
       {!loading && hasMore && (
-        <CardFooter>
+        <CardFooter className="px-0">
           <Button
             variant="ghost"
-            className="w-full text-muted-foreground"
-            onClick={handleLoadMore}
+            className="w-full hover:bg-primary/5 hover:text-primary"
+            onClick={() => !loading && hasMore && fetchRecentPosts(currentPage + 1)}
             disabled={loading}
           >
-            {loading ? "Loading..." : "Load More"}
+            {loading ? "Loading..." : "Show More"}
             <ChevronDownIcon className="ml-2 h-4 w-4" />
           </Button>
         </CardFooter>
@@ -161,3 +136,24 @@ export function RecentPosts() {
     </Card>
   );
 }
+
+const LoadingSkeletons = () => (
+  <>
+    {Array(4).fill(0).map((_, index) => (
+      <div key={index} className="flex items-start gap-4 p-4">
+        <Skeleton className="h-10 w-10 rounded-full" />
+        <div className="flex-1 space-y-2">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-20" />
+          </div>
+          <Skeleton className="h-4 w-full" />
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+        </div>
+      </div>
+    ))}
+  </>
+);

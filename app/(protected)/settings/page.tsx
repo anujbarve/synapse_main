@@ -9,8 +9,6 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { AccountSettingsSection } from "@/components/settings/account";
 
 export default function Page() {
@@ -44,7 +42,7 @@ export default function Page() {
             <AccountSettingsSection></AccountSettingsSection>
 
             {/* Preferences Card */}
-            <Card className="p-6">
+            {/* <Card className="p-6">
               <h2 className="text-lg font-semibold mb-4">Preferences</h2>
               <div className="space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
@@ -57,10 +55,10 @@ export default function Page() {
                 </div>
                 <Button variant="outline" className="w-full md:w-auto">Save Preferences</Button>
               </div>
-            </Card>
+            </Card> */}
 
             {/* Notification Settings Card */}
-            <Card className="p-6">
+            {/* <Card className="p-6">
               <h2 className="text-lg font-semibold mb-4">Notification Settings</h2>
               <div className="space-y-6">
                 <div className="space-y-4">
@@ -75,10 +73,10 @@ export default function Page() {
                 </div>
                 <Button className="w-full md:w-auto">Save Notifications</Button>
               </div>
-            </Card>
+            </Card> */}
 
             {/* Privacy Settings Card */}
-            <Card className="p-6">
+            {/* <Card className="p-6">
               <h2 className="text-lg font-semibold mb-4">Privacy Settings</h2>
               <div className="space-y-6">
                 <div className="space-y-4">
@@ -94,10 +92,10 @@ export default function Page() {
                 <Button className="w-full md:w-auto">Update Privacy</Button>
               </div>
             </Card>
-          </div>
+          </div> */}
 
           {/* Sidebar */}
-          <div className="col-span-1 md:col-span-1 md:order-2 lg:col-span-3 md:sticky md:top-4">
+          {/* <div className="col-span-1 md:col-span-1 md:order-2 lg:col-span-3 md:sticky md:top-4">
             <Card className="p-6">
               <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
               <div className="space-y-4">
@@ -111,8 +109,8 @@ export default function Page() {
                   Privacy Review
                 </Button>
               </div>
-            </Card>
-
+            </Card> */}
+{/* 
             <Card className="p-6 mt-4">
               <h2 className="text-lg font-semibold mb-4">Help & Support</h2>
               <div className="space-y-2">
@@ -122,7 +120,7 @@ export default function Page() {
                 <Button variant="link" className="p-0">View Documentation</Button>
                 <Button variant="link" className="p-0">Contact Support</Button>
               </div>
-            </Card>
+            </Card> */}
           </div>
         </div>
       </main>

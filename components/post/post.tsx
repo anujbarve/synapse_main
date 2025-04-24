@@ -4,9 +4,9 @@ import * as React from "react";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
-  Heart,
+  // Heart,
   MessageSquare,
-  Share,
+  // Share,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -201,12 +201,12 @@ export function Post({
             </Button>
           </Link>
 
-          <Button variant="ghost" size="icon">
+          {/* <Button variant="ghost" size="icon">
             <Heart className="h-4 w-4" />
           </Button>
           <Button variant="ghost" size="icon">
             <Share className="h-4 w-4" />
-          </Button>
+          </Button> */}
         </div>
       </CardFooter>
     </Card>
