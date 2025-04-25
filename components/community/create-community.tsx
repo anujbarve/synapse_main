@@ -23,10 +23,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Loader2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useUserStore } from "@/stores/user_store";
+import { useCommunityStore } from "@/stores/communities_store";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 // Define the form schema with Zod
 const communityFormSchema = z.object({
@@ -59,11 +61,18 @@ export function CommunityFormAndInfo() {
     title: "",
     description: "",
     banner_image: null as File | null,
-  }); // Initialize communityData state
-
+  });
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   
+  const router = useRouter();
   const supabase = createClient();
   const { user } = useUserStore();
+  const { 
+    createCommunity, 
+    loading, 
+    error,
+    fetchUserCommunities 
+  } = useCommunityStore();
 
   const form = useForm<CommunityFormValues>({
     resolver: zodResolver(communityFormSchema),
@@ -80,88 +89,71 @@ export function CommunityFormAndInfo() {
   };
 
   async function onSubmit(data: CommunityFormValues) {
-    if (user) {
-      try {
-        // Prepare update data without profile picture
-        const insertData: {
-          name: string;
-          description: string;
-          banner_picture: string | null;
-          created_by: string;
-        } = {
-          name: data.title,
-          description: data.description,
-          created_by: user.id,
-          banner_picture: null,
-        };
-
-        // Only handle profile picture if it's provided
-        if (data.banner_image) {
-          try {
-            const { data: uploadData, error: uploadError } =
-              await supabase.storage
-                .from("community")
-                .upload(
-                  `/banners/${Date.now()}-${data.banner_image.name}`,
-                  data.banner_image
-                );
-
-            if (uploadError) throw uploadError;
-
-            const {
-              data: { publicUrl },
-            } = supabase.storage
-              .from("community")
-              .getPublicUrl(uploadData.path);
-
-            insertData.banner_picture = publicUrl;
-          } catch (uploadError) {
-            console.error("Error uploading banner picture:", uploadError);
-            // Show warning toast but continue with other updates
-            toast.warning("Failed to upload banner picture, but other changes will be saved");
-          }
-        }
-
-        // Update user profile
-        const { error: insertError } = await supabase
-          .from("community")
-          .insert(insertData);
-        if (insertError) {
-          console.error("Error updating profile:", insertError);
-          toast.error(insertError.message);
-        }
-
-        const { data: community_data } = await supabase
-          .from("community")
-          .select()
-          .eq("name", insertData.name)
-          .single();
-
-        if (community_data) {
-          const insertMemberData: {
-            community_id: number;
-            user_id: string;
-            role: string;
-          } = {
-            community_id: community_data.id,
-            user_id: user.id,
-            role: "admin",
-          };
-
-          const { error: insertMemberError } = await supabase
-            .from("community_members")
-            .insert(insertMemberData);
-          if (insertMemberError) {
-            console.error("Error inserting member data profile:", insertError);
-            toast.error(insertMemberError.message);
-          }
-        }
-      } catch (error) {
-        console.error("Error Creating Community:", error);
-        toast.error("Failed to Create Community");
-      }
+    if (!user) {
+      toast.error("You must be logged in to create a community");
+      return;
     }
-    toast.success("Community Created Successfully");
+
+    setIsSubmitting(true);
+    
+    try {
+      let bannerPictureUrl = null;
+
+      // Upload banner image if provided
+      if (data.banner_image) {
+        try {
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from("community")
+            .upload(`/banners/${Date.now()}-${data.banner_image.name}`, data.banner_image);
+
+          if (uploadError) throw uploadError;
+
+          const { data: { publicUrl } } = supabase.storage
+            .from("community")
+            .getPublicUrl(uploadData.path);
+
+          bannerPictureUrl = publicUrl;
+        } catch (uploadError) {
+          console.error("Error uploading banner picture:", uploadError);
+          toast.warning("Failed to upload banner picture, but continuing with community creation");
+        }
+      }
+
+      // Use the community store to create the community
+      const newCommunity = await createCommunity({
+        name: data.title,
+        description: data.description,
+        banner_picture: bannerPictureUrl,
+        created_by: user.id,
+        is_private: false
+      });
+
+      if (newCommunity) {
+        toast.success("Community created successfully!");
+        
+        // Reset form and state
+        form.reset();
+        setCommunityData({
+          title: "",
+          description: "",
+          banner_image: null,
+        });
+        setImagePreview(null);
+        
+        // Refresh user communities
+        if (user.id) {
+          fetchUserCommunities(user.id);
+        }
+
+      } else {
+        throw new Error("Failed to create community");
+      }
+    } catch (err) {
+      console.error("Error creating community:", err);
+      toast.error(error || "Failed to create community");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -171,18 +163,19 @@ export function CommunityFormAndInfo() {
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
-        handleFormChange("banner_image", reader.result as string);
+        handleFormChange("banner_image", file);
       };
       reader.readAsDataURL(file);
     } else {
       setImagePreview(null);
+      form.setValue("banner_image", null);
       handleFormChange("banner_image", null);
     }
   };
 
   return (
     <Card className="p-6">
-      <h2 className="text-lg font-semibold mb-4">Create/Edit Community</h2>
+      <h2 className="text-lg font-semibold mb-4">Create Community</h2>
       <div className="grid md:grid-cols-2 gap-6">
         <Form {...form}>
           <form
@@ -263,11 +256,29 @@ export function CommunityFormAndInfo() {
             />
 
             <div className="flex gap-4">
-              <Button type="submit">Create Community</Button>
+              <Button type="submit" disabled={isSubmitting || loading}>
+                {(isSubmitting || loading) ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Community"
+                )}
+              </Button>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => form.reset()}
+                onClick={() => {
+                  form.reset();
+                  setCommunityData({
+                    title: "",
+                    description: "",
+                    banner_image: null,
+                  });
+                  setImagePreview(null);
+                }}
+                disabled={isSubmitting || loading}
               >
                 Reset
               </Button>
@@ -296,10 +307,10 @@ export function CommunityFormAndInfo() {
             <CardTitle>
               <div>
                 <h2 className="text-2xl font-bold">
-                  {communityData.title || "CommunityName"}
+                  {communityData.title || "Community Name"}
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  {communityData.title || "CommunityName"}
+                  r/{communityData.title.toLowerCase().replace(/\s+/g, '_') || "community_name"}
                 </p>
               </div>
             </CardTitle>
@@ -312,22 +323,22 @@ export function CommunityFormAndInfo() {
             <div className="space-y-6">
               <div className="grid grid-cols-3 gap-4 border-b pb-4">
                 <div className="text-center">
-                  <p className="text-xl font-semibold">1.2m</p>
+                  <p className="text-xl font-semibold">0</p>
                   <p className="text-xs text-muted-foreground">Members</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-xl font-semibold">2.4k</p>
+                  <p className="text-xl font-semibold">1</p>
                   <p className="text-xs text-muted-foreground">Online</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-xl font-semibold">#142</p>
+                  <p className="text-xl font-semibold">New</p>
                   <p className="text-xs text-muted-foreground">Ranking</p>
                 </div>
               </div>
 
               <div className="flex items-center space-x-2 text-sm">
                 <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                <span>Created Jan 25, 2018</span>
+                <span>Created {new Date().toLocaleDateString()}</span>
               </div>
 
               <div className="space-y-2">
