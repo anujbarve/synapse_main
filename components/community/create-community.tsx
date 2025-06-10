@@ -28,7 +28,6 @@ import { createClient } from "@/utils/supabase/client";
 import { useUserStore } from "@/stores/user_store";
 import { useCommunityStore } from "@/stores/communities_store";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 
 // Define the form schema with Zod
 const communityFormSchema = z.object({
@@ -64,7 +63,6 @@ export function CommunityFormAndInfo() {
   });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   
-  const router = useRouter();
   const supabase = createClient();
   const { user } = useUserStore();
   const { 

@@ -195,9 +195,6 @@ const NotificationContent: React.FC<NotificationContentProps> = ({ notification 
               <Globe className="h-3 w-3 text-muted-foreground" />
             </Tooltip>
           )}
-          {!notification.is_read && (
-            <div className="h-2 w-2 rounded-full bg-primary" />
-          )}
         </div>
       </div>
     </div>
