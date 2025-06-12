@@ -20,16 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Activity, Clock } from "lucide-react";
-import { ActivityFeed } from "@/components/account/activity-feed";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-
 type SortOption = "latest" | "top" | "controversial";
-type ActivityTab = "recent" | "activity";
 
 export default function DashboardPage() {
   const [sortBy, setSortBy] = useState<SortOption>("latest");
-  const [activeTab, setActiveTab] = useState<ActivityTab>("recent");
   const { posts, loading, error, fetchAllPosts } = usePostStore();
 
   useEffect(() => {
@@ -133,7 +127,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="col-span-1 md:col-span-1 lg:col-span-3">
-          <div className="sticky top-4">
+          {/* <div className="sticky top-4">
             <Tabs 
               defaultValue="recent" 
               className="w-full"
@@ -150,14 +144,14 @@ export default function DashboardPage() {
                   Activity
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="recent" className="mt-0">
+              <TabsContent value="recent" className="mt-0"> */}
                 <RecentPosts />
-              </TabsContent>
+              {/* </TabsContent>
               <TabsContent value="activity" className="mt-0">
                 <ActivityFeed />
               </TabsContent>
             </Tabs>
-          </div>
+          </div> */}
         </div>
       </main>
     </>

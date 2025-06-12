@@ -1,29 +1,17 @@
 "use client"
 
 import {
-  Folder,
-  MoreHorizontal,
-  Share,
-  Trash2,
   Users,
+  Compass,
   type LucideIcon,
 } from "lucide-react"
 
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
 import Link from "next/link"
@@ -38,84 +26,72 @@ interface NavProjectsProps {
 }
 
 export function NavProjects({ projects, loading = false }: NavProjectsProps) {
-  const { isMobile } = useSidebar()
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <SidebarGroupLabel>Communities</SidebarGroupLabel>
+      <SidebarGroupLabel className="text-sm font-medium">Communities</SidebarGroupLabel>
       <SidebarMenu>
         {loading ? (
-          // Loading state
+          // Enhanced loading state
           <>
             {[1, 2, 3].map((i) => (
               <SidebarMenuItem key={i}>
-                <SidebarMenuButton>
-                  <Skeleton className="h-4 w-4" />
+                <SidebarMenuButton className="py-2">
+                  <Skeleton className="h-5 w-5 rounded-full mr-2" />
                   <Skeleton className="h-4 w-24" />
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
           </>
         ) : projects.length > 0 ? (
-          // Communities list
+          // Improved communities list
           <>
             {projects.map((item) => (
               <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton asChild>
-                  <a href={item.url}>
-                    <item.icon />
-                    <span>{item.name}</span>
+                <SidebarMenuButton 
+                  asChild
+                  className="transition-colors hover:bg-accent/60 rounded-md py-2"
+                >
+                  <a href={item.url} className="flex items-center">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-md bg-primary/10 text-primary mr-2">
+                      <item.icon className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="font-medium">{item.name}</span>
                   </a>
                 </SidebarMenuButton>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <SidebarMenuAction showOnHover>
-                      <MoreHorizontal />
-                      <span className="sr-only">More</span>
-                    </SidebarMenuAction>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    className="w-48"
-                    side={isMobile ? "bottom" : "right"}
-                    align={isMobile ? "end" : "start"}
-                  >
-                    <DropdownMenuItem>
-                      <Folder className="text-muted-foreground" />
-                      <span>View Community</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Share className="text-muted-foreground" />
-                      <span>Share Community</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-destructive">
-                      <Trash2 className="text-destructive" />
-                      <span>Leave Community</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
               </SidebarMenuItem>
             ))}
           </>
         ) : (
-          // Empty state
-          <SidebarMenuItem>
-            <SidebarMenuButton>
-              <Users className="text-muted-foreground" />
-              <span className="text-muted-foreground">No communities joined</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          // Improved empty state
+          <div className="px-3 py-4 text-center">
+            <div className="w-full flex justify-center mb-2">
+              <div className="bg-muted/50 rounded-full p-2">
+                <Users className="h-5 w-5 text-muted-foreground" />
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">No communities joined</p>
+            <Link 
+              href="/explore_communities" 
+              className="inline-flex items-center justify-center text-xs bg-muted/50 hover:bg-muted px-2 py-1 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Users className="h-3 w-3 mr-1" />
+              Find communities
+            </Link>
+          </div>
         )}
         
-        {/* Explore more communities link */}
-        <Link href="/explore_communities">
-          <SidebarMenuItem>
-            <SidebarMenuButton>
-              <MoreHorizontal />
-              <span>Explore Communities</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>  
-        </Link>
+        {/* Improved explore more communities link */}
+        {projects.length > 0 && (
+          <Link href="/explore_communities">
+            <SidebarMenuItem>
+              <SidebarMenuButton className="mt-2 text-muted-foreground hover:text-foreground transition-colors">
+                <Compass className="h-4 w-4" />
+                <span>Explore Communities</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>  
+          </Link>
+        )}
       </SidebarMenu>
     </SidebarGroup>
   )

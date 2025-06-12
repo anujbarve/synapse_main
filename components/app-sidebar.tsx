@@ -2,14 +2,14 @@
 
 import * as React from "react";
 import {
-  Book,
+  Hash,
   Home,
+  LaptopMinimal,
   Lightbulb,
   Settings2,
   StepBack,
   Users,
 } from "lucide-react";
-import {  Mic, Video } from "lucide-react"; // Import icons based on channel types
 
 import { NavMain } from "@/components/nav-main";
 import { NavProjects } from "./nav-communities";
@@ -106,38 +106,53 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   };
 
   const transformChannelsToNavRooms = () => {
-    return channels.map((channel) => {
-      let channelIcon;
-  
-      // Assign icons based on channel type
-      switch (channel.type) {
-        case "Text":
-          channelIcon = Book;
-          break;
-        case "Voice":
-          channelIcon = Mic;
-          break;
-        case "Video":
-          channelIcon = Video;
-          break;
-        default:
-          channelIcon = Book;
-          break;
-      }
-  
-      // Update the URL format to include communityId for non-text channels
-      const channelUrl = channel.type === "Text" 
-        ? `/community/${currentCommunity}/chat/${channel.id}` 
-        : `/community/${currentCommunity}/room/${channel.id}`;
-  
-      return {
-        name: channel.name,
-        url: channelUrl,
-        icon: channelIcon,
-        type: channel.type, // Add type to help with styling/behavior
-      };
-    });
-  };
+  return channels.map((channel) => {
+    let channelIcon;
+    let iconColor;
+    let backgroundColor;
+    
+    // Assign icons and colors based on channel type
+    switch (channel.type) {
+      case "Text":
+        channelIcon = Hash; // Changed from Book to Hash for text channels
+        iconColor = "#392cce"; // Primary color
+        backgroundColor = "rgba(57, 44, 206, 0.1)"; // Primary with opacity
+        break;
+      case "Voice":
+        channelIcon = LaptopMinimal;
+        iconColor = "#4d1f75"; // Secondary color
+        backgroundColor = "rgba(77, 31, 117, 0.1)"; // Secondary with opacity
+        break;
+      case "Video":
+        channelIcon = LaptopMinimal;
+        iconColor = "#882a9d"; // Accent color
+        backgroundColor = "rgba(136, 42, 157, 0.1)"; // Accent with opacity
+        break;
+      default:
+        channelIcon = Hash;
+        iconColor = "#392cce"; // Default to primary
+        backgroundColor = "rgba(57, 44, 206, 0.1)";
+        break;
+    }
+    
+    // Update the URL format to include communityId for non-text channels
+    const channelUrl = channel.type === "Text" 
+      ? `/community/${currentCommunity}/chat/${channel.id}` 
+      : `/community/${currentCommunity}/room/${channel.id}`;
+
+    
+    return {
+      id: channel.id,
+      name: channel.name,
+      url: channelUrl,
+      icon: channelIcon,
+      type: channel.type as "Text" | "Voice" | "Video",
+      iconColor: iconColor,
+      backgroundColor: backgroundColor,
+      description: channel.description || ""
+    };
+  });
+};
 
   useEffect(() => {
     if (user?.id && currentCommunity) {
