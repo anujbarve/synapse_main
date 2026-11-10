@@ -661,6 +661,16 @@ export type Database = {
         Args: { p_community_id: number; p_created_by: string }
         Returns: undefined
       }
+      create_notification: {
+        Args: {
+          p_user_id: string
+          p_content: string
+          p_related_id?: string | null
+          p_type?: string | null
+          p_is_public?: boolean
+        }
+        Returns: Database["public"]["Tables"]["notifications"]["Row"]
+      }
       increment_downvotes: {
         Args: { post_id: number }
         Returns: undefined

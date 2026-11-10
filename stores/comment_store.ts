@@ -1,6 +1,7 @@
 // commentStore.ts
 import { create } from "zustand";
 import { createClient } from "@/utils/supabase/client";
+import type { Tables } from "@/types/supabase";
 import { useNotificationStore } from "./notification_store";
 
 export interface Comment {
@@ -41,7 +42,6 @@ interface CommentStore {
   error: string | null;
 
   // Actions
-  fetchComments: (postId: number) => Promise<void>;
   createComment: (
     comment: Omit<
       Comment,
@@ -61,116 +61,6 @@ export const useCommentStore = create<CommentStore>((set, get) => ({
   comments: [],
   loading: false,
   error: null,
-
-  fetchComments: async (postId: number) => {
-    const supabase = createClient();
-    set({ loading: true, error: null });
-
-    try {
-      // Get the current user
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      // Fetch comments with their authors
-      const { data: comments, error: commentsError } = await supabase
-        .from("comments")
-        .select(
-          `
-          id,
-          post_id,
-          user_id,
-          content,
-          parent_id,
-          created_at,
-          updated_at,
-          author:users!comments_user_id_fkey (
-            username,
-            profile_picture
-          )
-        `
-        )
-        .eq("post_id", postId)
-        .order("created_at", { ascending: true });
-
-      if (commentsError) throw commentsError;
-
-      // Fetch all votes for these comments
-      const { data: votes, error: votesError } = await supabase
-        .from("comment_votes")
-        .select("*")
-        .in(
-          "comment_id",
-          comments.map((c) => c.id)
-        );
-
-      if (votesError) throw votesError;
-
-      const commentsWithAuthorAndVotes: CommentWithAuthorAndVote[] =
-        comments.map((comment: any) => {
-          // Get votes for this specific comment
-          const commentVotes = votes.filter(
-            (vote) => vote.comment_id === comment.id
-          );
-
-          // Calculate upvotes and downvotes
-          const upvotes = commentVotes.filter(
-            (vote) => vote.vote_type === "upvote"
-          ).length;
-          const downvotes = commentVotes.filter(
-            (vote) => vote.vote_type === "downvote"
-          ).length;
-
-          // Get current user's vote if any
-          const userVote = user
-            ? (commentVotes.find((vote) => vote.user_id === user.id)
-                ?.vote_type as "upvote" | "downvote" | undefined)
-            : undefined;
-
-          return {
-            id: comment.id,
-            post_id: comment.post_id,
-            user_id: comment.user_id,
-            content: comment.content,
-            parent_id: comment.parent_id,
-            upvotes,
-            downvotes,
-            created_at: comment.created_at,
-            updated_at: comment.updated_at,
-            author: {
-              username: comment.author.username,
-              profile_picture: comment.author.profile_picture,
-            },
-            userVote: userVote || null,
-            replies: [],
-          };
-        });
-
-      // Organize comments into a tree structure
-      const commentTree = commentsWithAuthorAndVotes.reduce(
-        (acc: CommentWithAuthorAndVote[], comment) => {
-          if (!comment.parent_id) {
-            acc.push(comment);
-          } else {
-            const parentComment = commentsWithAuthorAndVotes.find(
-              (c) => c.id === comment.parent_id
-            );
-            if (parentComment) {
-              parentComment.replies = parentComment.replies || [];
-              parentComment.replies.push(comment);
-            }
-          }
-          return acc;
-        },
-        []
-      );
-
-      set({ comments: commentTree, loading: false });
-    } catch (error) {
-      console.error("Error fetching comments:", error);
-      set({ error: (error as Error).message, loading: false });
-    }
-  },
 
   createComment: async (comment) => {
     const supabase = createClient();
@@ -490,7 +380,7 @@ export const useCommentStore = create<CommentStore>((set, get) => ({
 function updateCommentRecursively(
   comment: CommentWithAuthorAndVote,
   targetId: number,
-  updatedData: any
+  updatedData: Pick<Tables<"comments">, "content" | "updated_at">
 ): CommentWithAuthorAndVote {
   if (comment.id === targetId) {
     return {

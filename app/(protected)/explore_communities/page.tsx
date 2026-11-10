@@ -1,7 +1,3 @@
-"use client";
-
-import { useEffect } from "react";
-import { CommunityBanner } from "@/components/community-banner";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -12,34 +8,33 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useCommunityStore } from "@/stores/communities_store";
-import { useUserStore } from "@/stores/user_store";
+import { ExploreCommunitiesGrid } from "@/components/community/explore-communities-grid";
+import { createClient } from "@/utils/supabase/server";
+import type { Community } from "@/types/custom";
 
-export default function Page() {
-  const { communities, loading, error, fetchCommunities, userCommunities, fetchUserCommunities } = useCommunityStore();
-  const { user } = useUserStore();
+export default async function Page() {
+  const supabase = await createClient();
 
-  useEffect(() => {
-    fetchCommunities();
-  }, [fetchCommunities]);
+  const [communitiesResult, userResult] = await Promise.all([
+    supabase
+      .from("community")
+      .select()
+      .order("created_at", { ascending: false }),
+    supabase.auth.getUser(),
+  ]);
 
-  useEffect(() => {
-    if (user?.id) {
-      fetchUserCommunities(user.id);
-    }
-  }, [user?.id, fetchUserCommunities]);
-
-  const isMemberOfCommunity = (communityId: number) => {
-    return userCommunities.some(community => community.id === communityId);
-  };
-
-  if (loading) {
-    return <div>Loading...</div>;
+  const user = userResult.data.user;
+  let memberCommunityIds: number[] = [];
+  if (user) {
+    const { data: memberships } = await supabase
+      .from("community_members")
+      .select("community_id")
+      .eq("user_id", user.id);
+    memberCommunityIds = (memberships ?? []).map((m) => m.community_id);
   }
 
-  if (error) {
-    return <div>Error: {error}</div>;
-  }
+  const communities: Community[] = communitiesResult.data ?? [];
+  const error = communitiesResult.error?.message ?? null;
 
   return (
     <>
@@ -62,19 +57,14 @@ export default function Page() {
       </header>
 
       <main className="grid w-full gap-4 p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 w-full">
-          {communities.map((community) => (
-            <div className="col-span-1" key={community.id}>
-              <CommunityBanner
-                id={community.id.toString()}
-                title={community.name}
-                description={community.description}
-                banner_picture={community.banner_picture} 
-                isMember={isMemberOfCommunity(community.id)}
-              />
-            </div>
-          ))}
-        </div>
+        {error ? (
+          <div>Error: {error}</div>
+        ) : (
+          <ExploreCommunitiesGrid
+            communities={communities}
+            memberCommunityIds={memberCommunityIds}
+          />
+        )}
       </main>
     </>
   );

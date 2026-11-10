@@ -26,10 +26,10 @@ export function ParticipantsList() {
                   className="flex items-center gap-2 p-2 rounded-md hover:bg-accent"
                 >
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback>{participant.identity.slice(0, 2).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback>{(participant.name || participant.identity).slice(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <span className="flex-1 text-sm font-medium">
-                    {participant.identity}
+                    {participant.name || participant.identity}
                     {participant.isLocal && " (You)"}
                   </span>
                   <div className="flex gap-1">

@@ -26,6 +26,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useUserStore } from "@/stores/user_store";
+
+// Keeps only safe characters in an uploaded file name.
+const safeFileName = (name: string) => name.replace(/[^A-Za-z0-9._-]/g, "_");
 import { useCommunityStore } from "@/stores/communities_store";
 import { toast } from "sonner";
 
@@ -102,7 +105,7 @@ export function CommunityFormAndInfo() {
         try {
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from("community")
-            .upload(`/banners/${Date.now()}-${data.banner_image.name}`, data.banner_image);
+            .upload(`${user.id}/banners/${Date.now()}-${safeFileName(data.banner_image.name)}`, data.banner_image);
 
           if (uploadError) throw uploadError;
 

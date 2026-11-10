@@ -44,7 +44,6 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
                 .eq("community_id", communityId);
 
             if (error) throw error;
-            console.log(data);
 
             set({ channels: data || [], error: null });
         } catch (error) {

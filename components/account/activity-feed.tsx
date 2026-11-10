@@ -7,7 +7,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip } from "@/components/ui/tooltip";
 import { MessageSquare, ThumbsUp, UserPlus, Heart, Bell, Globe, Users, RefreshCw } from "lucide-react";
 import { NotificationType, useNotificationStore, Notification } from "@/stores/notification_store";
-import { useUserStore } from "@/stores/user_store";
 
 // Map notification types to activity icons
 const getActivityIcon = (type: NotificationType | null) => {
@@ -105,7 +104,7 @@ const NotificationContent: React.FC<NotificationContentProps> = ({ notification 
         return (
           <div className="space-y-2">
             <div className="text-sm">
-              <span dangerouslySetInnerHTML={{ __html: parseActivityLinks(notification) }} />
+              <span>{renderActivityContent(notification)}</span>
             </div>
             {postId && commentId && (
               <Link 
@@ -122,7 +121,7 @@ const NotificationContent: React.FC<NotificationContentProps> = ({ notification 
         return (
           <div className="space-y-2">
             <div className="text-sm">
-              <span dangerouslySetInnerHTML={{ __html: parseActivityLinks(notification) }} />
+              <span>{renderActivityContent(notification)}</span>
             </div>
             {postId && commentId && (
               <Link 
@@ -140,7 +139,7 @@ const NotificationContent: React.FC<NotificationContentProps> = ({ notification 
         return (
           <div className="space-y-2">
             <div className="text-sm">
-              <span dangerouslySetInnerHTML={{ __html: parseActivityLinks(notification) }} />
+              <span>{renderActivityContent(notification)}</span>
             </div>
             {userId && (
               <Link 
@@ -157,7 +156,7 @@ const NotificationContent: React.FC<NotificationContentProps> = ({ notification 
         return (
           <div className="space-y-2">
             <div className="text-sm">
-              <span dangerouslySetInnerHTML={{ __html: parseActivityLinks(notification) }} />
+              <span>{renderActivityContent(notification)}</span>
             </div>
             {postId && commentId && (
               <Link 
@@ -173,7 +172,7 @@ const NotificationContent: React.FC<NotificationContentProps> = ({ notification 
       default:
         return (
           <div className="text-sm">
-            <span dangerouslySetInnerHTML={{ __html: parseActivityLinks(notification) }} />
+            <span>{renderActivityContent(notification)}</span>
           </div>
         );
     }
@@ -222,85 +221,104 @@ const formatTimeAgo = (dateString: string) => {
   }
 };
 
-// Parse notification content to create activity text with links
-const parseActivityLinks = (notification: Notification) => {
-  let content = notification.content;
-  const { postId, communityId, channelId, userId } = extractIds(notification.related_id);
-  
-  // Helper function to extract username and ID from content
-  const extractUserInfo = (content: string) => {
-    const matches = content.match(/^(\w+)(?= (?:sent you a|accepted your|liked your|commented on your|joined your|created a new|promoted to|banned|muted))/);
-    if (matches) {
-      return {
-        username: matches[1],
-        restOfContent: content.slice(matches[1].length)
-      };
-    }
-    return null;
-  };
+// Build link spans over the raw notification text, then render them as React
+// nodes. Text is never treated as HTML, so user-supplied names/titles cannot
+// inject markup.
+type LinkSpan = { start: number; end: number; href: string };
 
-  // Handle user links based on notification type
-  if (notification.notification_type === 'post_comment' || 
-      notification.notification_type === 'comment_reply' || 
-      notification.notification_type === 'comment_upvote' ||
-      notification.notification_type === 'post_upvote') {
-    const userInfo = extractUserInfo(content);
-    if (userInfo && userId) {
-      content = `<a href="/account/${userId}" class="font-medium hover:underline">${userInfo.username}</a>${userInfo.restOfContent}`;
+const USER_LINK_TYPES: NotificationType[] = [
+  'post_comment',
+  'comment_reply',
+  'comment_upvote',
+  'post_upvote',
+];
+
+const findLinkSpans = (notification: Notification): LinkSpan[] => {
+  const content = notification.content;
+  const { postId, communityId, channelId, userId } = extractIds(notification.related_id);
+  const spans: LinkSpan[] = [];
+
+  // Leading username, linked to the user's account
+  if (notification.notification_type && USER_LINK_TYPES.includes(notification.notification_type)) {
+    const m = content.match(/^(\w+)(?= (?:sent you a|accepted your|liked your|commented on your|joined your|created a new|promoted to|banned|muted))/);
+    if (m && userId) {
+      spans.push({ start: 0, end: m[1].length, href: `/account/${userId}` });
     }
   } else {
-    // For other notification types, use the existing username-based replacement
-    content = content.replace(
-      /(\w+)(?= sent you a| accepted your| liked your| commented on your| joined your community| created a new community| promoted to| banned| muted)/g, 
-      (match: string) => {
-        const linkTarget = userId || match;
-        return `<a href="/account/${linkTarget}" class="font-medium hover:underline">${match}</a>`;
-      }
-    );
+    for (const m of content.matchAll(/(\w+)(?= sent you a| accepted your| liked your| commented on your| joined your community| created a new community| promoted to| banned| muted)/g)) {
+      const start = m.index ?? 0;
+      spans.push({ start, end: start + m[1].length, href: `/account/${userId || m[1]}` });
+    }
   }
-  
-  // Replace post titles with links
+
+  // Post title in quotes, linked to the post
   if (postId) {
-    content = content.replace(/"([^"]+)"(?= in | on )/, (match: string, title: string) => {
-      return `"<a href="/post/${postId}" class="font-medium hover:underline">${title}</a>"`;
-    });
+    const m = content.match(/"([^"]+)"(?= in | on )/);
+    if (m && m.index !== undefined) {
+      spans.push({ start: m.index + 1, end: m.index + 1 + m[1].length, href: `/post/${postId}` });
+    }
   }
-  
-  // Replace community names with links
+
+  // Community name after "in", "from" or "to", linked to the community
   if (communityId) {
-    content = content.replace(/(?:in|from|to) ([^"]+)(?=$| by)/, (match: string, communityName: string) => {
-      return match.replace(communityName, `<a href="/community/${communityId}" class="font-medium hover:underline">${communityName}</a>`);
-    });
+    const m = content.match(/(?:in|from|to) ([^"]+)(?=$| by)/);
+    if (m && m.index !== undefined) {
+      const end = m.index + m[0].length;
+      spans.push({ start: end - m[1].length, end, href: `/community/${communityId}` });
+    }
   }
-  
-  // Replace channel names with links
+
+  // #channel mention, linked to the channel
   if (channelId) {
-    content = content.replace(/#(\w+)/, (channelName: string) => {
-      return `<a href="/channel/${channelId}" class="font-medium hover:underline">#${channelName}</a>`;
-    });
+    const m = content.match(/#(\w+)/);
+    if (m && m.index !== undefined) {
+      spans.push({ start: m.index, end: m.index + m[0].length, href: `/channel/${channelId}` });
+    }
   }
-  
-  return content;
+
+  return spans;
 };
 
-export function ActivityFeed() {
-  const { user } = useUserStore();
+const renderActivityContent = (notification: Notification): React.ReactNode[] => {
+  const content = notification.content;
+  const spans = findLinkSpans(notification).sort((a, b) => a.start - b.start);
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+
+  for (const span of spans) {
+    if (span.start < cursor) continue; // skip overlapping matches
+    if (span.start > cursor) nodes.push(content.slice(cursor, span.start));
+    nodes.push(
+      <Link key={`${span.start}-${span.href}`} href={span.href} className="font-medium hover:underline">
+        {content.slice(span.start, span.end)}
+      </Link>
+    );
+    cursor = span.end;
+  }
+
+  if (cursor < content.length) nodes.push(content.slice(cursor));
+  return nodes;
+};
+
+// Viewer id is passed from the server page (null when logged out)
+export function ActivityFeed({ userId }: { userId: string | null }) {
   const { notifications, loading, error, fetchNotifications } = useNotificationStore();
-  
+
+  // Client-side fetch: notifications live in notification_store, not in the server loaders
   useEffect(() => {
-    if (user?.id) {
-      fetchNotifications(user.id, 10);
+    if (userId) {
+      fetchNotifications(userId, 10);
     }
-  }, [user?.id, fetchNotifications]);
+  }, [userId, fetchNotifications]);
 
   // Group notifications by date
   const groupedNotifications = useMemo(() => {
-    return notifications.reduce((groups, notification) => {
+    return notifications.reduce<Record<string, Notification[]>>((groups, notification) => {
       const date = new Date(notification.created_at).toLocaleDateString();
       if (!groups[date]) groups[date] = [];
       groups[date].push(notification);
       return groups;
-    }, {} as Record<string, Notification[]>);
+    }, {});
   }, [notifications]);
 
   if (loading) {

@@ -33,46 +33,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Users } from "lucide-react";
 import { useSingleCommunityStore } from "@/stores/single_community_store";
 import { toast } from "sonner";
-import { Progress } from "@/components/ui/progress"; // Added for upload progress
-import { ImageKitProvider, IKUpload } from "imagekitio-next"; // Added ImageKit imports
-
-// ImageKit configuration
-const publicKey = process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY!;
-const urlEndpoint = process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!;
-
-// ImageKit authenticator function
-const authenticator = async () => {
-  try {
-    const response = await fetch("/api/imagekit");
-    if (!response.ok) {
-      throw new Error(`Authentication failed: ${response.statusText}`);
-    }
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Authentication error:", error);
-    toast.error("Failed to authenticate upload");
-    throw error;
-  }
-};
-
-// Interface for ImageKit upload response
-interface ImageKitResponse {
-  url: string;
-  fileId: string;
-  name: string;
-  size: number;
-  filePath: string;
-  fileType: string;
-  height: number;
-  width: number;
-  thumbnailUrl: string;
-}
-
-// Interface for IKUpload ref
-interface IKUploadRef extends HTMLInputElement {
-  click: () => void;
-}
+import { uploadMedia, MAX_UPLOAD_BYTES } from "@/lib/media";
 
 // ChatCard Props
 interface ChatCardProps {
@@ -114,14 +75,13 @@ export function ChatCard({
   const [inputValue, setInputValue] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0); // Added for ImageKit
-  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null); // Added for ImageKit
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   // Refs
-  const ikUploadRef = useRef<IKUploadRef>(null); // Added ImageKit ref
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -206,34 +166,32 @@ export function ChatCard({
 
    }, [pagination.hasNextPage, pagination.page, messagesLoading, fetchMessages, lastFetchParams]);
 
-  // Handlers for ImageKit upload
-  const handleUploadError = (err: { message: string }) => {
-    console.error("Upload error:", err);
-    setIsUploading(false);
-    setUploadProgress(0);
-    toast.error(err.message || "Failed to upload file");
-  };
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !loggedInUserId) return;
 
-  const handleUploadSuccess = (res: ImageKitResponse) => {
-    console.log("Upload success:", res);
-    setIsUploading(false);
-    setUploadedUrl(res.url);
-    setSelectedFile(null); // Clear selected file reference after successful upload
-    toast.success("File uploaded successfully");
-    
-    // Auto-send the message with the uploaded file
-    if (res.url) {
-      sendMessageWithAttachment(res.url, res.fileType.startsWith("image/") ? "Image" : "File");
+    setSelectedFile(file);
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setSelectedFile(null);
+      toast.error("File must be 100 MB or smaller");
+      return;
     }
-  };
 
-  const handleUploadProgress = (progress: { loaded: number; total: number }) => {
-    setUploadProgress((progress.loaded / progress.total) * 100);
-  };
-
-  const handleUploadStart = () => {
     setIsUploading(true);
-    setUploadProgress(0);
+    try {
+      const { url, fileType } = await uploadMedia(file, `messages/${loggedInUserId}`);
+      setUploadedUrl(url);
+      setSelectedFile(null);
+      toast.success("File uploaded successfully");
+      // Auto-send the message with the uploaded file
+      sendMessageWithAttachment(url, fileType.startsWith("image/") ? "Image" : "File");
+    } catch (err) {
+      console.error("Upload error:", err);
+      toast.error((err as Error).message || "Failed to upload file");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   // Util functions
@@ -242,13 +200,12 @@ export function ChatCard({
   };
 
   const handleAttachmentClick = () => {
-    ikUploadRef.current?.click();
+    fileInputRef.current?.click();
   };
 
   const removeSelectedFile = () => {
     setSelectedFile(null);
     setUploadedUrl(null);
-    setUploadProgress(0);
   };
 
   const sendMessageWithAttachment = async (fileUrl: string, messageType: MessageType) => {
@@ -275,7 +232,6 @@ export function ChatCard({
       // Reset input state
       setInputValue("");
       setUploadedUrl(null);
-      setUploadProgress(0);
       setSelectedFile(null);
       scrollToBottom('smooth');
     } catch (error) {
@@ -387,11 +343,7 @@ export function ChatCard({
   }
 
   return (
-    <ImageKitProvider
-      publicKey={publicKey}
-      urlEndpoint={urlEndpoint}
-      authenticator={authenticator}
-    >
+    <>
       <div className={cn("h-full flex flex-col bg-background", className)}>
         {/* Header */}
         <div className="px-4 py-3 flex items-center justify-between border-b shrink-0">
@@ -465,22 +417,12 @@ export function ChatCard({
 
         {/* Input Area */}
         <div className="p-4 border-t shrink-0 bg-background">
-          {/* ImageKit Upload (hidden) */}
-          <IKUpload
-            fileName={`message-${Date.now()}`}
-            folder="/messages"
-            validateFile={(file: File) => {
-              // Store the selected file for UI display
-              setSelectedFile(file);
-              // Validate file size (100MB max)
-              return file.size <= 100 * 1024 * 1024;
-            }}
-            onError={handleUploadError}
-            onSuccess={handleUploadSuccess}
-            onUploadProgress={handleUploadProgress}
-            onUploadStart={handleUploadStart}
-            style={{ display: "none" }}
-            ref={ikUploadRef}
+          {/* File input (hidden) */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={handleFileChange}
             // Accept most common file types
             accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt"
           />
@@ -490,9 +432,7 @@ export function ChatCard({
             <div className="mb-2 p-2 bg-muted rounded-lg">
               <div className="flex justify-between items-center mb-1 text-sm">
                 <span>Uploading {selectedFile?.name}</span>
-                <span>{Math.round(uploadProgress)}%</span>
               </div>
-              <Progress value={uploadProgress} className="h-2" />
             </div>
           )}
 
@@ -598,7 +538,7 @@ export function ChatCard({
           </div>
         </div>
       </div>
-    </ImageKitProvider>
+    </>
   );
 }
 

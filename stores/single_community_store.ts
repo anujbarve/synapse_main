@@ -550,7 +550,6 @@ export const useSingleCommunityStore = create<CommunityStore>((set, get) => ({
 
       set({ moderationStatus: modStatus });
 
-      console.log(modStatus);
 
       // Show appropriate toast notifications
       if (modStatus.isBanned) {

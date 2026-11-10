@@ -43,7 +43,7 @@ export function RoomChat({ isMuted = false }: RoomChatProps) {
         if (data.type === 'chat') {
           const newMessage: ChatMessage = {
             id: `${Date.now()}-${participant.identity}`,
-            sender: participant.identity,
+            sender: participant.name || participant.identity,
             message: data.message,
             timestamp: new Date(),
             isLocal: false
@@ -87,7 +87,7 @@ export function RoomChat({ isMuted = false }: RoomChatProps) {
     // Add to local messages
     const newMessage: ChatMessage = {
       id: `${Date.now()}-${room.localParticipant.identity}`,
-      sender: room.localParticipant.identity,
+      sender: room.localParticipant.name || room.localParticipant.identity,
       message: inputValue,
       timestamp: new Date(),
       isLocal: true

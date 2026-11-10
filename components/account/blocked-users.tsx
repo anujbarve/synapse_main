@@ -1,46 +1,33 @@
 // components/social/blocked-users.tsx
 "use client";
 
-import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useUserConnectionStore } from "@/stores/connection_store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { UserX } from "lucide-react";
 import { toast } from "sonner";
-import { Skeleton } from "@/components/ui/skeleton";
+import type { EnrichedConnection } from "@/lib/social";
 
 interface BlockedUsersProps {
-  userId: string;
+  // Blocked connections for the viewer, loaded on the server
+  connections: EnrichedConnection[];
 }
 
-export function BlockedUsers({ userId }: BlockedUsersProps) {
-  const { connections, fetchBlockedUsers, loading, deleteConnection } = useUserConnectionStore();
-
-  useEffect(() => {
-    if (userId) {
-      fetchBlockedUsers(userId);
-    }
-  }, [userId, fetchBlockedUsers]);
+export function BlockedUsers({ connections }: BlockedUsersProps) {
+  const router = useRouter();
+  const { deleteConnection } = useUserConnectionStore();
 
   const handleUnblockUser = async (connectionId: number, username: string) => {
     try {
       await deleteConnection(connectionId);
       toast.success(`Unblocked ${username}`);
+      router.refresh();
     } catch (error) {
       toast.error("Failed to unblock user" + error);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        {Array(3).fill(0).map((_, i) => (
-          <Skeleton key={i} className="h-20" />
-        ))}
-      </div>
-    );
-  }
 
   if (connections.length === 0) {
     return (
@@ -52,13 +39,13 @@ export function BlockedUsers({ userId }: BlockedUsersProps) {
 
   return (
     <div className="space-y-3">
-      {connections.map(connection => {
+      {connections.map((connection) => {
         // Get the user details of the blocked person
         const blockedUser = connection.connected_user_details || {
           username: `User ${connection.connected_user_id.substring(0, 6)}`,
           profile_picture: null
         };
-        
+
         return (
           <Card key={connection.id} className="p-4">
             <div className="flex items-center justify-between">
@@ -76,7 +63,7 @@ export function BlockedUsers({ userId }: BlockedUsersProps) {
                   </div>
                 </div>
               </div>
-              
+
               <Button
                 size="sm"
                 variant="outline"

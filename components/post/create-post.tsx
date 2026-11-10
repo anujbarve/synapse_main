@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useUserStore } from "@/stores/user_store";
 import { usePostStore } from "@/stores/post_store";
+import { useRouter } from "next/navigation";
 import {
   Select,
   SelectContent,
@@ -25,13 +26,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Progress } from "@/components/ui/progress";
-import { ImageKitProvider, IKUpload } from "imagekitio-next";
+import { uploadMedia, MAX_UPLOAD_BYTES } from "@/lib/media";
 import { useSingleCommunityStore } from "@/stores/single_community_store";
 import { toast } from "sonner";
-
-const publicKey = process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY!;
-const urlEndpoint = process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!;
 
 const postFormSchema = z.object({
   title: z
@@ -43,15 +40,11 @@ const postFormSchema = z.object({
   description: z.string().optional(), // Add description field
 });
 
-interface IKUploadRef extends HTMLInputElement {
-  click: () => void;
-}
-
 type PostFormValues = z.infer<typeof postFormSchema>;
 
 export function CreatePostForm() {
-  const ikUploadRef = React.useRef<IKUploadRef>(null);
-  const [uploadProgress, setUploadProgress] = React.useState(0);
+  const router = useRouter();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadedUrl, setUploadedUrl] = React.useState<string | null>(null);
 
@@ -77,68 +70,33 @@ export function CreatePostForm() {
 
   const postType = form.watch("type");
 
-  const authenticator = async () => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !user) return;
+
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error("File must be 100 MB or smaller");
+      return;
+    }
+
+    setIsUploading(true);
     try {
-      const response = await fetch("/api/imagekit");
-      if (!response.ok) {
-        throw new Error(`Authentication failed: ${response.statusText}`);
-      }
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error("Authentication error:", error);
-      toast.error("Failed to authenticate upload");
-      throw error;
+      const { url } = await uploadMedia(
+        file,
+        `posts/${user.id}/${postType.toLowerCase()}s`
+      );
+      setUploadedUrl(url);
+      toast.success("File uploaded successfully");
+    } catch (err) {
+      console.error("Upload error:", err);
+      toast.error((err as Error).message || "Failed to upload file");
+    } finally {
+      setIsUploading(false);
     }
   };
 
-  interface ImageKitResponse {
-    url: string;
-    fileId: string;
-    name: string;
-    size: number;
-    filePath: string;
-    fileType: string;
-    height: number;
-    width: number;
-    thumbnailUrl: string;
-  }
-
-  // Define the error type
-  type UploadError = {
-    message: string;
-  };
-
-  // Define the progress type
-  interface UploadProgressEvent {
-    loaded: number;
-    total: number;
-  }
-
-  const handleUploadError = (err: UploadError) => {
-    console.error("Upload error:", err);
-    setIsUploading(false);
-    toast.error(err.message || "Failed to upload file");
-  };
-
-  const handleUploadSuccess = (res: ImageKitResponse) => {
-    console.log("Upload success:", res);
-    setIsUploading(false);
-    setUploadedUrl(res.url);
-    toast.success("File uploaded successfully");
-  };
-
-  const handleUploadProgress = (progress: UploadProgressEvent) => {
-    setUploadProgress((progress.loaded / progress.total) * 100);
-  };
-
-  const handleUploadStart = () => {
-    setIsUploading(true);
-    setUploadProgress(0);
-  };
-
   const onSubmit = async (data: PostFormValues) => {
-    console.log("Form submitted with data:", data);
 
     if (!user) {
       toast.error("You must be logged in to create a post");
@@ -177,15 +135,15 @@ export function CreatePostForm() {
         type: data.type,
       };
 
-      console.log("Creating post with:", postData);
 
       await createPost(postData);
+      // Reload server-loaded post lists so the new post appears
+      router.refresh();
 
       toast.success("Post created successfully");
 
       form.reset();
       setUploadedUrl(null);
-      setUploadProgress(0);
     } catch (error) {
       console.error("Error creating post:", error);
       toast.error((error as Error).message);
@@ -194,11 +152,7 @@ export function CreatePostForm() {
 
   return (
     <Card className="p-6">
-      <ImageKitProvider
-        publicKey={publicKey}
-        urlEndpoint={urlEndpoint}
-        authenticator={authenticator}
-      >
+      <>
         <h2 className="text-lg font-semibold mb-4">Create Post</h2>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -212,7 +166,6 @@ export function CreatePostForm() {
                     onValueChange={(value) => {
                       field.onChange(value);
                       setUploadedUrl(null);
-                      setUploadProgress(0);
                     }}
                     defaultValue={field.value}
                   >
@@ -313,34 +266,22 @@ export function CreatePostForm() {
                     Upload {postType === "Image" ? "Image" : "Video"}
                   </FormLabel>
                   <div className="space-y-4">
-                    <IKUpload
-                      fileName={Date.now().toString()}
-                      folder={`/posts/${postType.toLowerCase()}s`}
-                      validateFile={(file: File) =>
-                        file.size <= 100 * 1024 * 1024
-                      }
-                      onError={handleUploadError}
-                      onSuccess={handleUploadSuccess}
-                      onUploadProgress={handleUploadProgress}
-                      onUploadStart={handleUploadStart}
-                      style={{ display: "none" }}
-                      ref={ikUploadRef}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
                       accept={postType === "Image" ? "image/*" : "video/*"}
+                      onChange={handleFileChange}
                     />
                     <Button
                       type="button"
-                      onClick={() => ikUploadRef.current?.click()}
+                      onClick={() => fileInputRef.current?.click()}
                       disabled={isUploading}
                     >
                       {isUploading ? "Uploading..." : "Choose File"}
                     </Button>
                     {isUploading && (
-                      <div className="space-y-2">
-                        <Progress value={uploadProgress} />
-                        <p className="text-sm text-muted-foreground">
-                          Uploading: {Math.round(uploadProgress)}%
-                        </p>
-                      </div>
+                      <p className="text-sm text-muted-foreground">Uploading...</p>
                     )}
                     {uploadedUrl && (
                       <p className="text-sm text-green-600">
@@ -362,7 +303,6 @@ export function CreatePostForm() {
                 onClick={() => {
                   form.reset();
                   setUploadedUrl(null);
-                  setUploadProgress(0);
                 }}
                 disabled={isUploading}
               >
@@ -371,7 +311,7 @@ export function CreatePostForm() {
             </div>
           </form>
         </Form>
-      </ImageKitProvider>
+      </>
     </Card>
   );
 }

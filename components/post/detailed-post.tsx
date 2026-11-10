@@ -23,7 +23,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { PostWithAuthorAndVote, usePostStore } from "@/stores/post_store";
-import { IKImage, IKVideo } from "imagekitio-next";
+import Image from "next/image";
 import {
   CommentWithAuthorAndVote,
   useCommentStore,
@@ -49,6 +49,7 @@ import {
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRouter } from "next/navigation";
 
 // Create Context for Comment Functions
 interface CommentContextType {
@@ -388,32 +389,47 @@ const CommentComponent = React.memo(
 
 CommentComponent.displayName = "CommentComponent";
 
-export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
+// Finds a comment at any depth of the reply tree
+function findComment(
+  list: CommentWithAuthorAndVote[],
+  commentId: number
+): CommentWithAuthorAndVote | undefined {
+  for (const comment of list) {
+    if (comment.id === commentId) return comment;
+    const nested = comment.replies ? findComment(comment.replies, commentId) : undefined;
+    if (nested) return nested;
+  }
+  return undefined;
+}
+
+// Post and comments come from the server (see app/(protected)/post/[id]/page.tsx).
+// Mutations go through the stores, then router.refresh() reloads the server data.
+export function DetailedPost({
+  post,
+  comments,
+}: {
+  post: PostWithAuthorAndVote;
+  comments: CommentWithAuthorAndVote[];
+}) {
+  const router = useRouter();
   const { user } = useUserStore();
   const [newComment, setNewComment] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isMediaLoading, setIsMediaLoading] = React.useState(true);
-  const { votePost, removeVote, currentPost, fetchPostById } = usePostStore();
+  const { votePost, removeVote } = usePostStore();
   const {
-    comments,
     createComment,
     voteComment,
     removeCommentVote,
-    fetchComments,
     updateComment,
     deleteComment,
   } = useCommentStore();
-
-  // Fetch post and comments data
-  React.useEffect(() => {
-    fetchPostById(post.id);
-    fetchComments(post.id);
-  }, [post.id, fetchPostById, fetchComments]);
 
   const handleUpdateComment = React.useCallback(
     async (commentId: number, content: string) => {
       try {
         await updateComment(commentId, content);
+        router.refresh();
         toast.success("Comment updated successfully", {
           className: "bg-[#eff3fb] text-[#03050c] border-[#3e31d3]/20",
         });
@@ -424,13 +440,14 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
         });
       }
     },
-    [updateComment]
+    [updateComment, router]
   );
 
   const handleDeleteComment = React.useCallback(
     async (commentId: number) => {
       try {
         await deleteComment(commentId);
+        router.refresh();
         toast.success("Comment deleted successfully", {
           className: "bg-[#eff3fb] text-[#03050c] border-[#3e31d3]/20",
         });
@@ -441,16 +458,17 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
         });
       }
     },
-    [deleteComment]
+    [deleteComment, router]
   );
 
   const handleVotePost = async (voteType: "upvote" | "downvote") => {
     try {
-      if (currentPost?.userVote === voteType) {
+      if (post.userVote === voteType) {
         await removeVote(post.id);
       } else {
         await votePost(post.id, voteType);
       }
+      router.refresh();
     } catch (error) {
       console.error("Failed to vote on post:", error);
       toast.error("Failed to vote on post", {
@@ -470,6 +488,7 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
         content: newComment,
         parent_id: null,
       });
+      router.refresh();
       setNewComment("");
       toast.success("Your comment has been posted successfully", {
         className: "bg-[#eff3fb] text-[#03050c] border-[#3e31d3]/20",
@@ -487,20 +506,20 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
   const handleVoteComment = React.useCallback(
     async (commentId: number, voteType: "upvote" | "downvote") => {
       try {
-        const comment = comments.find((c) => c.id === commentId);
+        const comment = findComment(comments, commentId);
         if (comment?.userVote === voteType) {
           await removeCommentVote(commentId);
         } else {
           await voteComment(commentId, voteType);
         }
-      } catch (error) {
-        console.log("Failed to vote on comment:", error);
+        router.refresh();
+      } catch {
         toast.error("Failed to vote on comment", {
           className: "bg-[#eff3fb] text-[#03050c] border-red-400/20",
         });
       }
     },
-    [comments, removeCommentVote, voteComment]
+    [comments, removeCommentVote, voteComment, router]
   );
 
   const handleSubmitReply = React.useCallback(
@@ -513,6 +532,7 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
           content,
           parent_id: parentCommentId,
         });
+        router.refresh();
         toast.success("Reply added successfully", {
           className: "bg-[#eff3fb] text-[#03050c] border-[#3e31d3]/20",
         });
@@ -523,7 +543,7 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
         });
       }
     },
-    [createComment, post.id, user]
+    [createComment, post.id, user, router]
   );
 
   const commentContextValue = React.useMemo(
@@ -558,7 +578,7 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
     ]
   );
 
-  const postVoteBalance = (currentPost?.upvotes || 0) - (currentPost?.downvotes || 0);
+  const postVoteBalance = (post.upvotes || 0) - (post.downvotes || 0);
 
   return (
     <div className="max-w-[1200px] mx-auto p-4 space-y-6">
@@ -630,8 +650,7 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
                 {isMediaLoading && (
                   <Skeleton className="absolute inset-0 bg-[#eff3fb] dark:bg-[#191c2a]" />
                 )}
-                <IKImage
-                  urlEndpoint={process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!}
+                <Image
                   src={post.content}
                   alt={`Post Image for ${post.title}`}
                   fill
@@ -664,8 +683,7 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
                 {isMediaLoading && (
                   <Skeleton className="w-full aspect-video bg-[#eff3fb] dark:bg-[#191c2a]" />
                 )}
-                <IKVideo
-                  urlEndpoint={process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!}
+                <video
                   id="main-video"
                   controls
                   className="w-full rounded-lg"
@@ -673,7 +691,7 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
                   onLoadedData={() => setIsMediaLoading(false)}
                 >
                   Your browser does not support the video tag.
-                </IKVideo>
+                </video>
               </div>
             )}
           </CardContent>
@@ -690,11 +708,11 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
                     "h-9 px-3 rounded-l-full rounded-r-none border-r border-white/50 dark:border-black/20",
                     "text-[#03050c]/70 dark:text-white/70 hover:text-[#3e31d3] hover:bg-[#3e31d3]/10",
                     "focus-visible:ring-offset-0 focus-visible:ring-1 focus-visible:ring-[#3e31d3]",
-                    currentPost?.userVote === "upvote" && "bg-[#3e31d3]/10 text-[#3e31d3] font-medium"
+                    post.userVote === "upvote" && "bg-[#3e31d3]/10 text-[#3e31d3] font-medium"
                   )}
                 >
                   <ArrowUpIcon className="h-4 w-4 mr-1" />
-                  <span className="text-xs">{currentPost?.upvotes || 0}</span>
+                  <span className="text-xs">{post.upvotes || 0}</span>
                 </Button>
                 
                 <Button
@@ -706,11 +724,11 @@ export function DetailedPost({ post }: { post: PostWithAuthorAndVote }) {
                     "h-9 px-3 rounded-r-full rounded-l-none",
                     "text-[#03050c]/70 dark:text-white/70 hover:text-[#c062d5] hover:bg-[#c062d5]/10",
                     "focus-visible:ring-offset-0 focus-visible:ring-1 focus-visible:ring-[#c062d5]",
-                    currentPost?.userVote === "downvote" && "bg-[#c062d5]/10 text-[#c062d5] font-medium"
+                    post.userVote === "downvote" && "bg-[#c062d5]/10 text-[#c062d5] font-medium"
                   )}
                 >
                   <ArrowDownIcon className="h-4 w-4 mr-1" />
-                  <span className="text-xs">{currentPost?.downvotes || 0}</span>
+                  <span className="text-xs">{post.downvotes || 0}</span>
                 </Button>
               </div>
               

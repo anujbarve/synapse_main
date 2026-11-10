@@ -1,33 +1,30 @@
 // app/connections/blocked/page.tsx
-"use client";
-
-import { useEffect } from "react";
-import { useUserStore } from "@/stores/user_store";
 import { BlockedUsers } from "@/components/account/blocked-users";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SocialNav } from "@/components/account/social-nav";
 import { redirect } from "next/navigation";
+import { createClient } from "@/utils/supabase/server";
+import { countReceivedPending, fetchBlocked } from "@/lib/social-server";
 
-export default function BlockedUsersPage() {
-  const { user, loading } = useUserStore();
-  
-  useEffect(() => {
-    if (!loading && !user) {
-      redirect("/login");
-    }
-  }, [user, loading]);
-  
-  if (loading || !user) {
-    return <div className="container mx-auto p-6 flex justify-center">Loading...</div>;
-  }
-  
+export default async function BlockedUsersPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const [blocked, pendingCount] = await Promise.all([
+    fetchBlocked(supabase, user.id),
+    countReceivedPending(supabase, user.id),
+  ]);
+
   return (
     <div className="container mx-auto p-6 max-w-5xl">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Blocked Users</h1>
-        <SocialNav />
+        <SocialNav viewerId={user.id} pendingCount={pendingCount} />
       </div>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Blocked Users</CardTitle>
@@ -36,7 +33,7 @@ export default function BlockedUsersPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <BlockedUsers userId={user.id} />
+          <BlockedUsers connections={blocked} />
         </CardContent>
       </Card>
     </div>

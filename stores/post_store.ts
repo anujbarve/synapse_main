@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { createClient } from "@/utils/supabase/client";
 import { useReputationStore } from "./reputation_store";
 import { useNotificationStore } from "./notification_store";
+import { isVoteType, resolvePostType } from "@/lib/post-data";
 
 export type PostType = "Text" | "Link" | "Image" | "Video";
 
@@ -54,7 +55,6 @@ interface PostStore {
   userPostsError: string | null;
 
   // Actions
-  fetchAllPosts: () => Promise<void>;
   fetchPosts: (communityId: number) => Promise<void>;
   fetchPostById: (postId: number) => Promise<void>;
   createPost: (
@@ -132,7 +132,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
       };
 
       const postsWithAuthorAndVotes: PostWithAuthorAndVote[] =
-        postsResponse.data.map((post: any) => {
+        postsResponse.data.map((post) => {
           const voteType = votesResponse.data?.find(
             (vote) => vote.post_id === post.id
           )?.vote_type;
@@ -144,7 +144,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
             title: post.title,
             content: post.content,
             description: post.description,
-            type: post.type as PostType,
+            type: resolvePostType(post.type, post.id),
             upvotes: post.upvotes || 0,
             downvotes: post.downvotes || 0,
             created_at: post.created_at,
@@ -208,74 +208,6 @@ export const usePostStore = create<PostStore>((set, get) => ({
     }
   },
 
-  // Modify fetchAllPosts method
-  fetchAllPosts: async () => {
-    const supabase = createClient();
-    set({ loading: true, error: null });
-    try {
-      // Fetch current user
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      const [postsResponse, votesResponse] = await Promise.all([
-        supabase
-          .from("posts")
-          .select(
-            `
-          *,
-          author:users!posts_user_id_fkey (
-            id,
-            username,
-            profile_picture
-          ),
-          community:community!posts_community_id_fkey (
-            name,
-            banner_picture
-          )
-        `
-          )
-          .order("created_at", { ascending: false }),
-
-        // Only fetch votes for the current user if authenticated
-        user
-          ? supabase.from("post_votes").select("*").eq("user_id", user.id)
-          : Promise.resolve({ data: [] }),
-      ]);
-
-      if (postsResponse.error) throw postsResponse.error;
-
-      const postsWithAuthorAndVotes: PostWithAuthorAndVote[] =
-        postsResponse.data.map((post: any) => {
-          // Find the current user's vote for this specific post
-          const userVote = votesResponse.data?.find(
-            (vote) => vote.post_id === post.id
-          )?.vote_type;
-
-          return {
-            ...post,
-            author: {
-              id: post.author.id,
-              username: post.author.username,
-              profile_picture: post.author.profile_picture,
-            },
-            community: post.community
-              ? {
-                  name: post.community.name,
-                  banner_picture: post.community.banner_picture,
-                }
-              : undefined,
-            userVote: userVote || null, // Only set userVote if it exists for the current user
-          };
-        });
-
-      set({ posts: postsWithAuthorAndVotes, loading: false });
-    } catch (error) {
-      console.error("Error fetching all posts:", error);
-      set({ error: (error as Error).message, loading: false });
-    }
-  },
-
   // Similar modification for fetchPosts method
   fetchPosts: async (communityId: number) => {
     const supabase = createClient();
@@ -315,7 +247,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
       if (postsResponse.error) throw postsResponse.error;
 
       const postsWithAuthorAndVotes: PostWithAuthorAndVote[] =
-        postsResponse.data.map((post: any) => {
+        postsResponse.data.map((post) => {
           // Find the current user's vote for this specific post
           const userVote = votesResponse.data?.find(
             (vote) => vote.post_id === post.id
@@ -323,6 +255,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
 
           return {
             ...post,
+            type: resolvePostType(post.type, post.id),
             author: {
               id: post.author.id,
               username: post.author.username,
@@ -332,7 +265,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
               name: post.community.name,
               banner_picture: post.community.banner_picture,
             },
-            userVote: userVote || null, // Only set userVote if it exists for the current user
+            userVote: isVoteType(userVote) ? userVote : null, // Only set userVote if it exists for the current user
           };
         });
 
@@ -388,7 +321,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
         title: postResponse.data.title,
         content: postResponse.data.content,
         description: postResponse.data.description,
-        type: postResponse.data.type as PostType,
+        type: resolvePostType(postResponse.data.type, postId),
         upvotes: postResponse.data.upvotes || 0,
         downvotes: postResponse.data.downvotes || 0,
         created_at: postResponse.data.created_at,
@@ -483,7 +416,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
         title: data.title,
         content: data.content,
         description: data.description,
-        type: data.type as PostType,
+        type: resolvePostType(data.type, data.id),
         created_at: data.created_at,
         updated_at: data.updated_at,
         upvotes: data.upvotes,
@@ -591,7 +524,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
         title: data.title,
         content: data.content,
         description: data.description,
-        type: data.type as PostType,
+        type: resolvePostType(data.type, data.id),
         upvotes: data.upvotes || 0,
         downvotes: data.downvotes || 0,
         created_at: data.created_at,

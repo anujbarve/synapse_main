@@ -156,7 +156,7 @@ export function ScreenShareTile({ participant, className }: ScreenShareTileProps
           
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 flex justify-between items-center opacity-0 hover:opacity-100 transition-opacity">
             <span className="text-sm font-medium text-white">
-              {participant.identity}&apos;s screen
+              {participant.name || participant.identity}&apos;s screen
             </span>
             
             <div className="flex gap-2">

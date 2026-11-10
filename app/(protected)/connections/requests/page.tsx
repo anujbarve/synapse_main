@@ -1,39 +1,36 @@
 // app/connections/requests/page.tsx
-"use client";
-
-import { useEffect } from "react";
-import { useUserStore } from "@/stores/user_store";
 import { FriendRequests } from "@/components/account/connection-request";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SocialNav } from "@/components/account/social-nav";
 import { redirect } from "next/navigation";
+import { createClient } from "@/utils/supabase/server";
+import { fetchReceivedPending, fetchSentPending } from "@/lib/social-server";
 
-export default function FriendRequestsPage() {
-  const { user, loading } = useUserStore();
-  
-  useEffect(() => {
-    if (!loading && !user) {
-      redirect("/login");
-    }
-  }, [user, loading]);
-  
-  if (loading || !user) {
-    return <div className="container mx-auto p-6 flex justify-center">Loading...</div>;
-  }
-  
+export default async function FriendRequestsPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const [received, sent] = await Promise.all([
+    fetchReceivedPending(supabase, user.id),
+    fetchSentPending(supabase, user.id),
+  ]);
+
   return (
     <div className="container mx-auto p-6 max-w-5xl">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Friend Requests</h1>
-        <SocialNav />
+        <SocialNav viewerId={user.id} pendingCount={received.length} />
       </div>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Manage Requests</CardTitle>
         </CardHeader>
         <CardContent>
-          <FriendRequests userId={user.id} />
+          <FriendRequests userId={user.id} currentUserId={user.id} received={received} sent={sent} />
         </CardContent>
       </Card>
     </div>

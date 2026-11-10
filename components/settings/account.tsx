@@ -21,6 +21,9 @@ import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Textarea } from "../ui/textarea";
 import { useUserStore } from "@/stores/user_store";
+
+// Keeps only safe characters in an uploaded file name.
+const safeFileName = (name: string) => name.replace(/[^A-Za-z0-9._-]/g, "_");
 import { toast } from "sonner";
 
 // Define the form schema with Zod
@@ -89,7 +92,7 @@ export function AccountSettingsSection() {
               await supabase.storage
                 .from("profile-pictures")
                 .upload(
-                  `/${Date.now()}-${data.profile_picture.name}`,
+                  `${user.id}/${Date.now()}-${safeFileName(data.profile_picture.name)}`,
                   data.profile_picture
                 );
 

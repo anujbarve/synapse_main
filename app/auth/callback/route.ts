@@ -15,7 +15,6 @@ export async function GET(request: Request) {
       const supabase = await createClient();
       const { data, error: userError } = await supabase.auth.getUser();
       if (userError) {
-        console.log("Error fetching user data : ", userError.message);
         return NextResponse.redirect(`${origin}/error`);
       }
 
@@ -33,7 +32,6 @@ export async function GET(request: Request) {
           username : data.user.email?.split('@')[0]
         });
         if (insertError) {
-            console.log("Error fetching user data : ", insertError.message);
             return NextResponse.redirect(`${origin}/error`);
         }
       }

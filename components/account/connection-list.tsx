@@ -1,13 +1,13 @@
 // components/social/friends-list.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useUserConnectionStore } from "@/stores/connection_store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { UserX, MessageSquare, MoreHorizontal } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -17,27 +17,26 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import type { EnrichedConnection } from "@/lib/social";
 
 interface FriendsListProps {
   userId: string;
   isOwnProfile: boolean;
   compact?: boolean;
+  // Accepted connections for `userId`, loaded on the server
+  connections: EnrichedConnection[];
 }
 
-export function FriendsList({ userId, isOwnProfile, compact = false }: FriendsListProps) {
-  const { connections, fetchFriends, loading, deleteConnection } = useUserConnectionStore();
+export function FriendsList({ userId, isOwnProfile, compact = false, connections }: FriendsListProps) {
+  const router = useRouter();
+  const { deleteConnection } = useUserConnectionStore();
   const [searchQuery, setSearchQuery] = useState("");
-  
-  useEffect(() => {
-    if (userId) {
-      fetchFriends(userId);
-    }
-  }, [userId, fetchFriends]);
 
   const handleRemoveFriend = async (connectionId: number, friendUsername: string) => {
     try {
       await deleteConnection(connectionId);
       toast.success(`Removed ${friendUsername} from friends`);
+      router.refresh();
     } catch (error) {
       toast.error("Failed to remove friend : " + error);
     }
@@ -45,42 +44,24 @@ export function FriendsList({ userId, isOwnProfile, compact = false }: FriendsLi
 
   // Process the connections to get the friendship data with user details
   const friendsData = connections
-    .filter(conn => conn.status === 'accepted')
-    .map(conn => {
+    .filter((conn) => conn.status === "accepted")
+    .map((conn) => {
       // Determine which user in the connection is the friend
       const isFriendRequester = conn.user_id === userId;
       const friendId = isFriendRequester ? conn.connected_user_id : conn.user_id;
       const friendDetails = isFriendRequester ? conn.connected_user_details : conn.user_details;
-      
+
       return {
         connectionId: conn.id,
         userId: friendId,
         username: friendDetails?.username || `User ${friendId.substring(0, 6)}`,
         profile_picture: friendDetails?.profile_picture || null,
-        lastActive: new Date().toISOString() // Mock last active - could be stored in user data
       };
     });
 
-  const filteredFriends = friendsData.filter(friend => 
+  const filteredFriends = friendsData.filter((friend) =>
     friend.username.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        {!compact && (
-          <div className="relative">
-            <Skeleton className="w-full h-10" />
-          </div>
-        )}
-        <div className={compact ? "grid grid-cols-1 gap-2" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
-          {Array(compact ? 3 : 6).fill(0).map((_, i) => (
-            <Skeleton key={i} className="h-20" />
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   if (friendsData.length === 0) {
     return (
@@ -93,7 +74,7 @@ export function FriendsList({ userId, isOwnProfile, compact = false }: FriendsLi
   if (compact) {
     return (
       <div className="space-y-2">
-        {filteredFriends.slice(0, 3).map(friend => (
+        {filteredFriends.slice(0, 3).map((friend) => (
           <Link key={friend.userId} href={`/account/${friend.userId}`}>
             <Card className="p-3 hover:bg-accent/50 transition-colors">
               <div className="flex items-center gap-3">
@@ -104,7 +85,6 @@ export function FriendsList({ userId, isOwnProfile, compact = false }: FriendsLi
                   </AvatarFallback>
                 </Avatar>
                 <span className="text-sm font-medium truncate">{friend.username}</span>
-                {/* <div className={`ml-auto h-2 w-2 rounded-full ${friend.status === 'online' ? 'bg-green-500' : 'bg-gray-300'}`} /> */}
               </div>
             </Card>
           </Link>
@@ -128,9 +108,9 @@ export function FriendsList({ userId, isOwnProfile, compact = false }: FriendsLi
           className="w-full"
         />
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredFriends.map(friend => (
+        {filteredFriends.map((friend) => (
           <Card key={friend.userId} className="p-4 flex items-center justify-between">
             <Link href={`/account/${friend.userId}`} className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
@@ -141,12 +121,9 @@ export function FriendsList({ userId, isOwnProfile, compact = false }: FriendsLi
               </Avatar>
               <div>
                 <div className="font-medium">{friend.username}</div>
-                {/* <div className="text-xs text-muted-foreground">
-                  {friend.status === 'online' ? 'Online' : `Last seen ${new Date(friend.lastActive).toLocaleDateString()}`}
-                </div> */}
               </div>
             </Link>
-            
+
             {isOwnProfile && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -162,7 +139,7 @@ export function FriendsList({ userId, isOwnProfile, compact = false }: FriendsLi
                       Message
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     onClick={() => handleRemoveFriend(friend.connectionId, friend.username)}
                     className="text-destructive focus:text-destructive"
                   >
@@ -175,7 +152,7 @@ export function FriendsList({ userId, isOwnProfile, compact = false }: FriendsLi
           </Card>
         ))}
       </div>
-      
+
       {filteredFriends.length === 0 && searchQuery && (
         <div className="text-center py-4 text-muted-foreground">
           No friends match your search

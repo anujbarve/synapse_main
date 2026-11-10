@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { createClient } from "@/utils/supabase/client";
 import { RealtimeChannel } from "@supabase/supabase-js";
+import type { Tables } from "@/types/supabase";
 
 // Message Type Definition
 export type MessageType = "Text" | "Image" | "File";
@@ -31,6 +32,12 @@ export interface MessageWithSender extends Message {
     banner_picture: string | null;
   };
 }
+
+// Row returned by the messages selects that join sender and community
+type MessageRowWithJoins = Tables<"messages"> & {
+  sender: { username: string; profile_picture: string | null } | null;
+  community: { name: string; banner_picture: string | null } | null;
+};
 
 // Pagination Interface
 interface PaginationMeta {
@@ -87,16 +94,19 @@ interface MessageStore {
 }
 
 // Utility Functions
-function isValidMessageType(type: any): type is MessageType {
-  return ["Text", "Image", "File"].includes(type);
+function isValidMessageType(type: unknown): type is MessageType {
+  return type === "Text" || type === "Image" || type === "File";
 }
 
-function safeMessageType(type: any): MessageType {
+function safeMessageType(type: unknown): MessageType {
   return isValidMessageType(type) ? type : "Text";
 }
 
 // Helper to check if a message belongs to the currently viewed context
-const isMessageRelevant = (messageData: any, context?: FetchMessagesParams | null): boolean => {
+const isMessageRelevant = (
+    messageData: Partial<Pick<Message, "sender_id" | "receiver_id" | "community_id" | "channel_id">>,
+    context?: FetchMessagesParams | null
+): boolean => {
     if (!context) return true; // If no context, assume relevant (or adjust as needed)
 
     if (context.userIds && context.userIds.length === 2) {
@@ -197,7 +207,7 @@ export const useMessageStore = create<MessageStore>((set, get) => {
 
         // --- Map data (safe mapping, unchanged) ---
         const messagesWithSender: MessageWithSender[] = (data || []).map(
-          (message: any) => ({
+          (message: MessageRowWithJoins) => ({
             id: message.id,
             sender_id: message.sender_id,
             community_id: message.community_id,
@@ -373,12 +383,11 @@ export const useMessageStore = create<MessageStore>((set, get) => {
            channelName = `channel-${params.channelId}`;
        }
 
-       console.log(`Subscribing to realtime channel: ${channelName}`);
 
       // Create new subscription
       const subscription = supabase
         .channel(channelName) // Use the context-specific channel name
-        .on(
+        .on<Tables<"messages">>(
           "postgres_changes",
           {
             event: "*", // Listen for all changes (INSERT, UPDATE, DELETE)
@@ -391,14 +400,12 @@ export const useMessageStore = create<MessageStore>((set, get) => {
             // Filter for DMs via filter string is complex, relying on channelName or client-side check.
           },
           async (payload) => {
-            console.log("Realtime payload received:", payload);
             const currentViewParams = get().lastFetchParams; // Get the context the user is currently viewing
 
             // --- Client-side relevance check is CRUCIAL ---
             // Especially if using a shared channel or if server filters are broad.
             const relevantData = payload.new || payload.old; // Use new for INSERT/UPDATE, old for DELETE check
             if (!relevantData || !isMessageRelevant(relevantData, currentViewParams)) {
-                 console.log("Skipping irrelevant realtime message for context:", currentViewParams);
                  return; // Don't process if not relevant to the current view
             }
 
@@ -418,7 +425,6 @@ export const useMessageStore = create<MessageStore>((set, get) => {
           }
         )
         .subscribe(async (status, err) => {
-          console.log(`Realtime channel ${channelName} status:`, status);
            if (err) {
                 console.error(`Realtime subscription error on ${channelName}:`, err);
                 // Optionally set an error state or attempt to resubscribe
@@ -444,10 +450,9 @@ export const useMessageStore = create<MessageStore>((set, get) => {
       // --- Realtime Event Handlers ---
       // These handlers now assume the message is relevant based on the check above
 
-      const handleInsert = async (newMessageData: any) => {
+      const handleInsert = async (newMessageData: Tables<"messages">) => {
         // Check if message already exists in the state (could happen due to race conditions)
          if (get().messages.some(m => m.id === newMessageData.id)) {
-             console.log("Realtime INSERT skipped: Message already exists in state", newMessageData.id);
              return;
          }
 
@@ -509,7 +514,7 @@ export const useMessageStore = create<MessageStore>((set, get) => {
         }
       };
 
-      const handleUpdate = (updatedMessageData: any) => {
+      const handleUpdate = (updatedMessageData: Tables<"messages">) => {
           // Ensure the updated data includes necessary fields or merge carefully
          const updatedMessagePartial = {
              ...updatedMessageData,
@@ -533,7 +538,8 @@ export const useMessageStore = create<MessageStore>((set, get) => {
         }));
       };
 
-      const handleDelete = (messageId: number) => {
+      // DELETE payloads only carry the primary key when replica identity allows it
+      const handleDelete = (messageId: number | undefined) => {
          // Check if the message exists before trying to filter/update count
          const messageExists = get().messages.some(msg => msg.id === messageId);
 
@@ -554,7 +560,6 @@ export const useMessageStore = create<MessageStore>((set, get) => {
 
       // Return cleanup function to be called on component unmount or context change
       return () => {
-         console.log(`Unsubscribing from realtime channel: ${channelName}`);
         subscription.unsubscribe();
         set({ messageSubscription: null }); // Clear subscription from state
       };

@@ -31,6 +31,19 @@ export type NotificationType =
   | "community_member_joined"
   | "community_member_left";
 
+const NOTIFICATION_TYPES: readonly NotificationType[] = [
+  "connection_request", "connection_accept", "connection_removed", "channel_created",
+  "channel_deleted", "channel_updated", "post_upvote", "post_downvote", "post_comment",
+  "post_deleted", "post_updated", "new_post", "comment_upvote", "comment_downvote",
+  "comment_reply", "system", "custom", "community_created", "community_updated",
+  "community_deleted", "community_joined", "community_left", "community_member_joined",
+  "community_member_left",
+];
+
+function isNotificationType(value: string | null): value is NotificationType {
+  return value !== null && (NOTIFICATION_TYPES as readonly string[]).includes(value);
+}
+
 // Notification interface matching the database schema
 export interface Notification {
   id: number;
@@ -333,22 +346,29 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     const supabase = createClient();
 
     try {
-      const { data, error } = await supabase
-        .from("notifications")
-        .insert({
-          user_id: params.user_id,
-          content: params.content,
-          is_read: false,
-          is_public: params.is_public || false,
-          notification_type: params.notification_type || null,
-          related_id: params.related_id || null,
-        })
-        .select()
-        .single();
+      // Inserts go through the SECURITY DEFINER function, which enforces the
+      // sender/recipient checks (see create_notification in db.sql).
+      const { data, error } = await supabase.rpc("create_notification", {
+        p_user_id: params.user_id,
+        p_content: params.content,
+        p_related_id: params.related_id || null,
+        p_type: params.notification_type || null,
+        p_is_public: params.is_public || false,
+      });
 
       if (error) throw error;
 
-      const newNotification = data as Notification;
+      if (!data) throw new Error("create_notification returned no row");
+      const newNotification: Notification = {
+        id: data.id,
+        user_id: data.user_id,
+        content: data.content,
+        is_read: data.is_read ?? false,
+        is_public: data.is_public ?? false,
+        notification_type: isNotificationType(data.notification_type) ? data.notification_type : null,
+        related_id: data.related_id,
+        created_at: data.created_at ?? new Date().toISOString(),
+      };
 
       // Update local state
       set((state) => {

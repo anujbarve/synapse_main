@@ -22,30 +22,72 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useRecentPostsStore } from "@/stores/recent_posts_store";
+import { fetchRecentPostsPage } from "@/stores/recent_posts_store";
+import type { RecentPost } from "@/lib/post-data";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-export function RecentPosts() {
-  const { posts, loading, error, hasMore, currentPage, fetchRecentPosts } =
-    useRecentPostsStore();
+interface RecentPostsProps {
+  // First page, loaded by the server component that renders this card
+  initialPosts: RecentPost[];
+  initialHasMore: boolean;
+  initialError?: string | null;
+}
+
+export function RecentPosts({
+  initialPosts,
+  initialHasMore,
+  initialError = null,
+}: RecentPostsProps) {
+  const router = useRouter();
+  // Pages after the first are loaded on "Show more" and kept here
+  const [extraPosts, setExtraPosts] = React.useState<RecentPost[]>([]);
+  const [currentPage, setCurrentPage] = React.useState(1);
+  // null means "use the server value"; set once a "Show more" request completes
+  const [moreAvailable, setMoreAvailable] = React.useState<boolean | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(initialError);
   const [animate, setAnimate] = React.useState(false);
 
-  React.useEffect(() => {
-    fetchRecentPosts(1);
-    return () => {
-      useRecentPostsStore.getState().resetPosts();
-    };
-  }, [fetchRecentPosts]);
+  const hasMore = moreAvailable ?? initialHasMore;
+  const posts = React.useMemo(() => {
+    const seen = new Set<number>();
+    return [...initialPosts, ...extraPosts].filter((post) => {
+      if (seen.has(post.id)) return false;
+      seen.add(post.id);
+      return true;
+    });
+  }, [initialPosts, extraPosts]);
 
-  const loadMorePosts = React.useCallback(() => {
-    if (!loading && hasMore) {
-      setAnimate(true);
-      fetchRecentPosts(currentPage + 1);
-      setTimeout(() => setAnimate(false), 500);
+  const loadMorePosts = async () => {
+    if (loading || !hasMore) return;
+    setAnimate(true);
+    setLoading(true);
+    setError(null);
+    try {
+      const nextPage = currentPage + 1;
+      const result = await fetchRecentPostsPage(nextPage);
+      setExtraPosts((prev) => [...prev, ...result.posts]);
+      setMoreAvailable(result.hasMore);
+      setCurrentPage(nextPage);
+    } catch (err) {
+      console.error("Error fetching recent posts:", err);
+      setError(err instanceof Error ? err.message : "Failed to fetch posts");
+    } finally {
+      setLoading(false);
     }
-  }, [loading, hasMore, currentPage, fetchRecentPosts]);
+    setTimeout(() => setAnimate(false), 500);
+  };
 
+  // Reset the paged state and re-run the server load
+  const retry = () => {
+    setExtraPosts([]);
+    setCurrentPage(1);
+    setMoreAvailable(null);
+    setError(null);
+    router.refresh();
+  };
 
   if (error) {
     return (
@@ -64,7 +106,7 @@ export function RecentPosts() {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => fetchRecentPosts(1)}
+              onClick={retry}
               className="mt-2 border-[#b88ae0]/30 text-[#3e31d3] dark:text-[#392cce] hover:bg-[#3e31d3]/5 dark:hover:bg-[#392cce]/10"
             >
               <RefreshCwIcon className="h-3.5 w-3.5 mr-2" />

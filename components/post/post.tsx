@@ -21,7 +21,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { PostType } from "@/types/custom";
 import Link from "next/link";
-import { IKImage, IKVideo } from "imagekitio-next";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,6 +37,8 @@ interface PostProps {
   upvotes: number;
   downvotes: number;
   createdAt: string;
+  // Set by server-loaded lists: the current user's vote for this post
+  userVote?: "upvote" | "downvote" | null;
   author: {
     id: string;
     username: string;
@@ -58,15 +61,20 @@ export function Post({
   createdAt,
   author,
   community,
+  userVote: userVoteProp,
 }: PostProps) {
+  const router = useRouter();
   const { votePost, removeVote, posts } = usePostStore();
   const [isVoting, setIsVoting] = React.useState(false);
   const [isMediaLoading, setIsMediaLoading] = React.useState(true);
 
-  const currentPost = posts.find((p) => p.id === id);
-  const userVote = currentPost?.userVote;
-  const displayUpvotes = currentPost?.upvotes ?? upvotes;
-  const displayDownvotes = currentPost?.downvotes ?? downvotes;
+  // Server-loaded lists pass userVote, so their props win over the store,
+  // which may hold a stale copy of this post from another page.
+  const serverDriven = userVoteProp !== undefined;
+  const storePost = serverDriven ? undefined : posts.find((p) => p.id === id);
+  const userVote = serverDriven ? userVoteProp : storePost?.userVote;
+  const displayUpvotes = storePost?.upvotes ?? upvotes;
+  const displayDownvotes = storePost?.downvotes ?? downvotes;
   const voteBalance = displayUpvotes - displayDownvotes;
 
   const handleVote = async (voteType: "upvote" | "downvote") => {
@@ -83,6 +91,10 @@ export function Post({
         toast.success(`Post ${voteType}d successfully`, {
           className: "bg-[#eff3fb] text-[#03050c] border-[#3e31d3]/20",
         });
+      }
+      if (serverDriven) {
+        // Re-run the server load so the counts and vote state update
+        router.refresh();
       }
     } catch (error) {
       console.error(`Error ${voteType}ing post:`, error);
@@ -153,8 +165,7 @@ export function Post({
             {isMediaLoading && (
               <Skeleton className="absolute inset-0 bg-[#eff3fb] dark:bg-[#191c2a]" />
             )}
-            <IKImage
-              urlEndpoint={process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!}
+            <Image
               src={content}
               alt={`Post Image for ${title}`}
               fill
@@ -187,15 +198,14 @@ export function Post({
             {isMediaLoading && (
               <Skeleton className="w-full aspect-video bg-[#eff3fb] dark:bg-[#191c2a]" />
             )}
-            <IKVideo
-              urlEndpoint={process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!}
+            <video
               controls
               className="w-full rounded-lg"
               src={content}
               onLoadedData={() => setIsMediaLoading(false)}
             >
               Your browser does not support the video tag.
-            </IKVideo>
+            </video>
           </div>
         )}
       </CardContent>

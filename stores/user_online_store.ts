@@ -5,8 +5,14 @@ import { RealtimeChannel } from "@supabase/supabase-js";
 
 interface PresenceState {
   userId: string;
-  lastSeen: string;
+  lastSeen?: string;
 }
+
+// Payload each member tracks on the community presence channel
+type PresencePayload = {
+  userId?: string;
+  timestamp?: string;
+};
 
 interface CommunityPresence {
   onlineMembers: Record<string, PresenceState>;
@@ -20,8 +26,7 @@ interface CommunityPresenceStore {
   error: string | null;
 }
 
-const log = (message: string, data?: any) => {
-  console.log(`[CommunityPresence] ${message}`, data || "");
+const log = (message: string, data?: unknown) => {
 };
 
 export const useCommunityPresenceStore = create<CommunityPresenceStore>((set, get) => {
@@ -75,12 +80,12 @@ export const useCommunityPresenceStore = create<CommunityPresenceStore>((set, ge
 
         channels[communityId]
           .on('presence', { event: 'sync' }, () => {
-            const presenceState = channels[communityId].presenceState();
+            const presenceState = channels[communityId].presenceState<PresencePayload>();
             log(`Presence sync for community ${communityId}`, presenceState);
 
             // Get online users that are community members
-            const onlineMembers = Object.values(presenceState).reduce((acc, presences: any) => {
-              presences.forEach((presence: any) => {
+            const onlineMembers = Object.values(presenceState).reduce<Record<string, PresenceState>>((acc, presences) => {
+              presences.forEach((presence) => {
                 if (presence.userId && communityMemberIds.has(presence.userId)) {
                   acc[presence.userId] = {
                     userId: presence.userId,
@@ -89,7 +94,7 @@ export const useCommunityPresenceStore = create<CommunityPresenceStore>((set, ge
                 }
               });
               return acc;
-            }, {} as Record<string, PresenceState>);
+            }, {});
 
             set(state => ({
               communities: {
@@ -101,11 +106,11 @@ export const useCommunityPresenceStore = create<CommunityPresenceStore>((set, ge
               }
             }));
           })
-          .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+          .on<PresencePayload>('presence', { event: 'join' }, ({ key, newPresences }) => {
             log(`Users joined community ${communityId}`, newPresences);
             set(state => {
               const currentOnlineMembers = { ...state.communities[communityId]?.onlineMembers };
-              newPresences.forEach((presence: any) => {
+              newPresences.forEach((presence) => {
                 if (presence.userId && communityMemberIds.has(presence.userId)) {
                   currentOnlineMembers[presence.userId] = {
                     userId: presence.userId,
@@ -125,11 +130,11 @@ export const useCommunityPresenceStore = create<CommunityPresenceStore>((set, ge
               };
             });
           })
-          .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+          .on<PresencePayload>('presence', { event: 'leave' }, ({ key, leftPresences }) => {
             log(`Users left community ${communityId}`, leftPresences);
             set(state => {
               const currentOnlineMembers = { ...state.communities[communityId]?.onlineMembers };
-              leftPresences.forEach((presence: any) => {
+              leftPresences.forEach((presence) => {
                 if (presence.userId) {
                   delete currentOnlineMembers[presence.userId];
                 }
@@ -161,7 +166,7 @@ export const useCommunityPresenceStore = create<CommunityPresenceStore>((set, ge
 
       } catch (error) {
         log(`Error initializing presence for community ${communityId}`, error);
-        set({ error: (error as Error).message });
+        set({ error: error instanceof Error ? error.message : String(error) });
       }
     },
 

@@ -19,8 +19,6 @@ export default async function Page({
   const communityId = (await params).id;
   const roomId = (await params).roomId; // Assuming roomId is part of the params
 
-  console.log("Community ID:", communityId);
-  console.log("Room ID:", roomId);
 
 
   return (

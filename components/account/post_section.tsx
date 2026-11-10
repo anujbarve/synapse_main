@@ -13,18 +13,17 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { useUserStore } from "@/stores/user_store";
 
-export function PostsSection({ username }: { username: string }) {
-  const { 
-    userPosts, 
-    userPostsLoading, 
-    userPostsError, 
+export function PostsSection({ username, isOwnProfile }: { username: string; isOwnProfile: boolean }) {
+  const {
+    userPosts,
+    userPostsLoading,
+    userPostsError,
     fetchUserPosts,
-    deletePost 
+    deletePost
   } = usePostStore();
-  const { user } = useUserStore();
-  const canModifyPost = user?.username === username;
+  // Viewer is the profile owner (computed on the server)
+  const canModifyPost = isOwnProfile;
   
   const [isDeleting, setIsDeleting] = useState(false);
   const [postToDelete, setPostToDelete] = useState<number | null>(null);

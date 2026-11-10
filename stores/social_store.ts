@@ -2,19 +2,13 @@
 
 import { create } from "zustand";
 import { createClient } from "@/utils/supabase/client";
+import type { Tables } from "@/types/supabase";
+import { errorMessage } from "@/lib/social";
 
-interface UserProfile {
-  id: string;
-  username: string;
-  email: string;
-  bio?: string | null;
-  profile_picture?: string | null;
-  reputation?: number | null;
-  created_at?: string | null;
-  updated_at?: string | null;
+type UserProfile = Tables<"users"> & {
   post_count?: number;
   comment_count?: number;
-}
+};
 
 interface UserProfileStore {
   profile: UserProfile | null;
@@ -73,7 +67,7 @@ export const useUserProfileStore = create<UserProfileStore>((set) => ({
         error: null,
       });
     } catch (error) {
-      set({ error: (error as Error).message });
+      set({ error: errorMessage(error) });
     } finally {
       set({ loading: false });
     }

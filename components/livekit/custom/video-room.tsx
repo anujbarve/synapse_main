@@ -294,21 +294,9 @@ export function VideoRoom({
         );
 
         if (cameraPublication) {
-          console.log(
-            `Camera track for ${remoteParticipant.identity}: ${
-              cameraPublication.isSubscribed ? "subscribed" : "not subscribed"
-            }`
-          );
         }
 
         if (microphonePublication) {
-          console.log(
-            `Microphone track for ${remoteParticipant.identity}: ${
-              microphonePublication.isSubscribed
-                ? "subscribed"
-                : "not subscribed"
-            }`
-          );
         }
       }
     };

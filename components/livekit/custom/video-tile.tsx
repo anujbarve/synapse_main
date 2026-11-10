@@ -48,7 +48,6 @@ export function VideoTile({
     ) => {
       if (track.kind === Track.Kind.Video) {
         if (publication.source === Track.Source.Camera && videoRef.current) {
-          console.log(`Attaching video track: ${participant.identity}`);
           track.attach(videoRef.current);
           setCameraEnabled(true);
         } else if (publication.source === Track.Source.ScreenShare) {
@@ -58,7 +57,6 @@ export function VideoTile({
         }
       } else if (track.kind === Track.Kind.Audio) {
         if (publication.source === Track.Source.Microphone && audioRef.current) {
-          console.log(`Attaching audio track: ${participant.identity}`);
           // Don't mute remote audio elements
           audioRef.current.muted = false;
           track.attach(audioRef.current);
@@ -75,7 +73,6 @@ export function VideoTile({
       track: RemoteTrack,
       publication: RemoteTrackPublication
     ) => {
-      console.log(`Detaching track: ${participant.identity}, source: ${publication.source}`);
       track.detach(); // Detach from all elements
 
       if (publication.source === Track.Source.Camera) {
@@ -90,7 +87,6 @@ export function VideoTile({
 
     const handleTrackMuted = (publication: TrackPublication) => {
       if (publication.source === Track.Source.Microphone) {
-        console.log(`Mic muted: ${participant.identity}`);
         setMicrophoneMuted(true);
       }
        if (publication.source === Track.Source.Camera) {
@@ -104,7 +100,6 @@ export function VideoTile({
 
     const handleTrackUnmuted = (publication: TrackPublication) => {
       if (publication.source === Track.Source.Microphone) {
-        console.log(`Mic unmuted: ${participant.identity}`);
         setMicrophoneMuted(false);
       }
       if (publication.source === Track.Source.Camera) {
@@ -138,7 +133,6 @@ export function VideoTile({
        // For local tracks (camera only needed for display)
        else if (participant.isLocal && publication.track) {
            if (publication.source === Track.Source.Camera && videoRef.current) {
-               console.log(`Attaching local video track: ${participant.identity}`);
                publication.track.attach(videoRef.current);
                setCameraEnabled(!publication.isMuted); // Set based on initial mute state
            }
@@ -177,7 +171,6 @@ export function VideoTile({
 
     // --- Cleanup Function ---
     return () => {
-      console.log(`Cleaning up listeners for ${participant.identity}`);
       // Detach all tracks for this participant
       participant.trackPublications.forEach((publication) => {
         if (publication.track) {
@@ -241,7 +234,7 @@ export function VideoTile({
             <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
               {/* You could add participant.metadata for image URL here */}
               <AvatarFallback>
-                {participant.identity?.slice(0, 2).toUpperCase() || "???"}
+                {(participant.name || participant.identity)?.slice(0, 2).toUpperCase() || "???"}
               </AvatarFallback>
             </Avatar>
           </div>
@@ -257,7 +250,7 @@ export function VideoTile({
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/50 to-transparent p-2 text-white">
           <div className="flex justify-between items-center gap-2">
             <span className="text-xs sm:text-sm font-medium truncate shrink min-w-0">
-              {participant.identity} {participant.isLocal && "(You)"}
+              {participant.name || participant.identity} {participant.isLocal && "(You)"}
             </span>
 
             <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">

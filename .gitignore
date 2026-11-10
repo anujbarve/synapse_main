@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ImageKit to Supabase media migration log (contains original URLs)
+scripts/.migration-log.jsonl

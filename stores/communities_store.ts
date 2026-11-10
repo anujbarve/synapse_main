@@ -42,7 +42,6 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
   fetchCommunities: async () => {
     set({ loading: true, error: null });
     try {
-      console.log("Community API Called");
       const supabase = createClient();
       const { data, error } = await supabase
         .from("community")
@@ -61,7 +60,6 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
   fetchUserCommunities: async (userId: string) => {
     set({ loading: true, error: null });
     try {
-      console.log("Fetching User Communities");
       const supabase = createClient();
       
       const { data, error } = await supabase

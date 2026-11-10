@@ -1,4 +1,5 @@
 "use client";
+import { publicEnv } from "@/lib/env";
 
 import { useEffect, useState } from "react";
 import { LiveKitRoom } from "@livekit/components-react";
@@ -41,15 +42,13 @@ export const MediaRoom = ({ chatId, video, audio,communityId }: MediaRoomProps) 
   useEffect(() => {
     if (!user?.username || !user?.email || !chatId) return;
 
-    const name = `${user.username}`;
     (async () => {
       try {
-        // Include communityId in the token request
+        // Identity and display name are resolved server-side from the session
         const resp = await fetch(
-          `/api/livekit?room=${chatId}&username=${name}&communityId=${communityId}`
+          `/api/livekit?room=${chatId}&communityId=${communityId}`
         );
         const data = await resp.json();
-        console.log(data);
 
         if (resp.ok) {
           setToken(data.token);
@@ -57,7 +56,7 @@ export const MediaRoom = ({ chatId, video, audio,communityId }: MediaRoomProps) 
           console.error("Error fetching token:", data.error);
         }
       } catch (e) {
-        console.log("Error:", e);
+        console.error("Error:", e);
       }
     })();
   }, [user?.username, user?.email, chatId, communityId]);
@@ -75,7 +74,7 @@ export const MediaRoom = ({ chatId, video, audio,communityId }: MediaRoomProps) 
   return (
     <div className="rounded-lg overflow-hidden border">
       <LiveKitRoom
-        serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL}
+        serverUrl={publicEnv.NEXT_PUBLIC_LIVEKIT_URL}
         token={token}
         connect={true}
         video={video && !moderationStatus.isBanned && !moderationStatus.isMuted}

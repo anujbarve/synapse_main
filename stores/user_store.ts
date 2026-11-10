@@ -2,17 +2,10 @@
 
 import { create } from 'zustand';
 import { createClient } from "@/utils/supabase/client";
+import type { Tables } from "@/types/supabase";
+import { errorMessage } from "@/lib/social";
 
-interface UserData {
-  id: string;
-  username: string;
-  email: string;
-  bio?: string | null;
-  profile_picture?: string | null;
-  reputation?: number | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-}
+type UserData = Tables<"users">;
 
 interface UserStore {
   user: UserData | null;
@@ -61,7 +54,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
 
       set({ user: userData, error: null });
     } catch (error) {
-      set({ error: (error as Error).message });
+      set({ error: errorMessage(error) });
     } finally {
       set({ loading: false, initialized: true });
     }
@@ -87,7 +80,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
 
       set({ user: { ...currentUser, ...updates } });
     } catch (error) {
-      set({ error: (error as Error).message });
+      set({ error: errorMessage(error) });
     }
   },
 
@@ -97,7 +90,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
       await supabase.auth.signOut();
       set({ user: null });
     } catch (error) {
-      set({ error: (error as Error).message });
+      set({ error: errorMessage(error) });
     }
   },
 }));
